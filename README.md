@@ -7,7 +7,19 @@ Code mostly by Alex Barnett, based on work from 2008-2016.
 
 Also includes code by L Nick Trefethen, Gary Marple, Bowei Wu.
 
+## Installation
+
+Download using `git`, `svn`, or as a zip (see green button above).
+
+Open MATLAB in the top level (`BIE2D`) directory, and run `setuppath` to add all needed directories to your path. 
+
+Test by running `fig_cauchycompeval` (for now) which should produce some convergence plots.
+
+Codes have been tested on MATLAB versions from R2012a onwards.
+
 ### Directories
 
-`test` : test codes other than built-in self-tests, figure-generating codes
-
+`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling  
+`utils`   : general numerical utilities  
+`test`    : test codes other than built-in self-tests, figure-generating codes  
+`doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.  
