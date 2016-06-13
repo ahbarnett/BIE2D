@@ -27,9 +27,9 @@ function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
 %  u = column vector of M potential values where M = numel(t.x), or if
 %      dens has n columns, the n column vector outputs are stacked (M-by-n).
 %  [u un] = LapDLPeval_closeglobal(t,s,dens,side) also returns target-normal
-%           derivatives.
+%           derivatives (M-by-n) using t.nx
 %  [u ux uy] = LapDLPeval_closeglobal(t,s,dens,side) instead returns x- and y-
-%           partials of u at the targets.
+%           partials of u at the targets (ignores t.nx)
 %  [u ux uy info] = LapDLPeval_closeglobal(t,s,dens,side) also gives diagnostic:
 %           info.vb = vector of v boundary values (M-by-n)
 %           info.imv = imag part of v at targets (M-by-n)
@@ -44,18 +44,17 @@ function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
 %          A. H. Barnett, B. Wu, and S. Veerapaneni, SIAM J. Sci. Comput.,
 %          37(4), B519-B542 (2015)   https://arxiv.org/abs/1410.2187
 %
-% See also: LAPDLPEVAL, SETUPQUAD, CAUCHYCOMPEVAL
+% See also: LAPDLPEVAL, SETUPQUAD, CAUCHYCOMPEVAL, LAPINTDIRBVP
 %
 % complexity O(N^2) for evaluation of v^+ or v^-, plus O(NM) for globally
 % compensated quadrature to targets
-%
+
 % Barnett 2013; multiple-column generalization by Gary Marple, 2014.
 % Repackaged Barnett 6/12/16
 
 if nargin==0, test_LapDLPevalfar; return; end
 n = size(dens,2);                   % # dens columns
 N = numel(s.x);                     % # source nodes
-wantder = nargout>1;
 
 % Helsing step 1: eval bdry limits at nodes of v = complex DLP(tau)...
 vb = zeros(N,n);                    % alloc v^+ or v^- bdry data of holom func
@@ -71,14 +70,14 @@ if side=='i', vb = vb - dens; end   % JR's add for v^-, cancel for v^+ (Eqn 4.3)
 info.vb = vb;                       % diagnostics
 
 % Helsing step 2: compensated close-evaluation of u = Re(v) & its deriv...
-if wantder
+if nargout>1                                % want derivatives
   [v vp] = cauchycompeval(t.x,s,vb,side);   % does Sec. 3 of [lsc2d]
   ux = real(vp)'; uy = -imag(vp)';          % leave as partials...
   if nargout==2, ux = ux.*real(t.nx) + uy.*imag(t.nx); end % or dot w/ targ nor
 else
   v = cauchycompeval(t.x,s,vb,side);        % "
 end
-u = real(v)'; info.imv = imag(v)';        % col vecs *** check for
+u = real(v)'; info.imv = imag(v)';        % col vecs *** check for n>1 case
 
 %%%%%%%%%%%%%%%%%%%
 function test_LapDLPevalfar         % check far-field matches the native rule

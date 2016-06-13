@@ -33,12 +33,21 @@ nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
 ug = LapDLPeval(g,s,tau);       % u on grid, expensive bit for now
 fg = f(g.x);                    % known soln on grid
 ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
-figure;
+figure; set(gcf,'name', 'DLP native evaluation');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
-% BVP done
+% basic BVP done
+
+% instead use close-evaluation scheme...
+ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
+ug(ii) = LapDLPeval_closeglobal(g,s,tau,'i');
+figure; set(gcf,'name', 'DLP close evaluation');
+tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
+caxis([-1 2]); colorbar; axis tight; title('u');
+tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
+caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
 A = A + LapSLPmat(s,s);
