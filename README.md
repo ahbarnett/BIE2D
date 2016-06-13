@@ -6,9 +6,9 @@ Main author: Alex Barnett, based on work from 2008-2016 including subsuming the 
 
 Also includes the following contributions:
 
-  Gary Marple - matrix versions of global close evaluation quadratures
-  Bowei Wu - Stokes velocity extension from Laplace
-  L Nick Trefethen - Gaussian quadrature
+  Gary Marple - matrix versions of global close evaluation quadratures  
+  Bowei Wu - Stokes velocity extension from Laplace  
+  L Nick Trefethen - Gaussian quadrature  
 
 ### Installation
 
@@ -23,11 +23,12 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 
 ### Directories
 
-`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling
-`utils`   : general numerical utilities
-`test`    : test codes other than built-in self-tests, figure-generating codes
-`solvers` : 2D BVP solver example codes, also serve to test kernels
-`doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.
+`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling  
+`utils`   : general numerical utilities  
+`test`    : test codes other than built-in self-tests, figure-generating codes  
+`solvers` : 2D BVP solver example codes, also serve to test kernels  
+`singlyperiodic` : codes for Laplace, Stokes flow in periodic pipes, possibly with veiscles.  
+`doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.  
 
 ### Notes and design decisions
 
