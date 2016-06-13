@@ -102,7 +102,7 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 
 if nargin<1, test_cauchycompeval; return; end
 if nargin<5, o = []; end
-if isfield(o,'delta')
+if isfield(o,'delta') || size(vb,2)>1     % we don't have matrix version here
   if ~isfield(s,'a'), error('s.a interior pt needed to use lsc2d version'); end
   if nargout==1, vc = cauchycompeval_lsc2d(x,s,vb,side,o);
   else, [vc vcp] = cauchycompeval_lsc2d(x,s,vb,side,o); end
@@ -170,8 +170,8 @@ if size(vb,2)>1              % matrix versions
   else, [vc vcp] = cauchycompmat_lsc2d(x,s,vb,side,o); end
   return
 end
-if ~isfield(o,'delta'), o.delta = 1e-2; end  % currently you have to set by hand
-% dist param where $O(N^2.M) deriv bary form switched on.
+if ~isfield(o,'delta'), o.delta = 1e-2; end  % currently won't ever be run.
+% delta = dist param where $O(N^2.M) deriv bary form switched on.
 % Roughly deriv errors are then limited to emach/mindist
 % The only reason to decrease mindist is if lots of v close
 % nodes on the curve with lots of close target points.
@@ -312,7 +312,7 @@ for side = 'ie'
   d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy (so bad!)
   [vc vcp] = cauchycompeval(z,s,v(s.x),side);    % current version
-  %s.a=0; [vc vcp] = cauchycompeval(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself.
+  %s.a=0; [vc vcp] = cauchycompeval(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself, where wrong.
   err = abs(vc - vz); errp = abs(vcp - vpz);
   disp(['side ' side ':  dist        v err       v'' err'])
   [abs(imag(ds))' err' errp']

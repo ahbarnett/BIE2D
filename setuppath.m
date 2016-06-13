@@ -6,4 +6,5 @@ mfilepath=fileparts(mfilename('fullpath'));
 addpath([mfilepath, '/kernels']);
 addpath([mfilepath, '/utils']);
 addpath([mfilepath, '/test']);
+addpath([mfilepath, '/solvers']);
 addpath([mfilepath, '/doublyperiodic']);
