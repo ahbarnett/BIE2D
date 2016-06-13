@@ -1,31 +1,45 @@
-% Basic solver for Laplace interior Dirichlet BVP on smooth curve.
+% Basic solver for Stokes interior velocity (Dirichlet) BVP on smooth curve.
 % Also serves to test the native SLP and DLP matrix and eval routines.
-% Barnett 6/12/16
+% Barnett 6/13/16, munging LapintDirBVP.m with intvelBVP.m from Feb 2014.
 %
-% References: see Ch. 6 of this:
-%
-% [LIE]  R. Kress, "Linear Integral Equations", vol. 82 of Appl. Math. Sci.,
-%        Springer, second ed., 1999
+% References: see Sec 2.3 of this:
+%  [HW]    "Boundary Integral Equations", G. C. Hsiao and W. L. Wendland
+%          (Springer, 2008).
 
-clear; a = .3; w = 5;         % smooth wobbly radial shape params
+clear;
+mu = 0.7;              % viscosity
+a = .3; w = 5;         % smooth wobbly radial shape params
 N = 200; s = wobblycurve(a,w,N);
 
-p = []; p.x = .2+.3i; p.nx = exp(1.9i);   % test pt including a direction
-figure; showsegment({s p})
-fholom = @(z) exp(1i*(z+1));        % holomorphic exact interior soln
-fpholom = @(z) 1i*exp(1i*(z+1));    % its complex derivative
+p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
+%figure; showsegment({s p})
 
-f = @(z) real(fholom(z));           % use real part as known Laplace soln
-fx = @(z) real(fpholom(z)); fy = @(z) -imag(fpholom(z)); % partials, note sign!
+% known Stokes solution: Poisseuil pipe flow
+ue = @(x) [imag(x).^2;0*x]; pe = @(x) 2*mu*real(x);   % vel, pres
+Te = @(x,n) 2*mu*[-real(x).*real(n)+imag(x).*imag(n); -real(x).*imag(n)+imag(x).*real(n)];   % trac (n=targ nor)
 
 % double-layer representation...
-A = -eye(N)/2 + LapDLPmat(s,s);       % Nystrom discretized integral operator
-rhs = f(s.x);
+A = -eye(2*N)/2 + StoDLPmat(s,s);       % Nystrom discretized integral operator
+%S = svd(A); fprintf('last few singular values of D-1/2:\n'); S(end-4:end)
+A(:,1) = A(:,1) + [real(s.nx);imag(s.nx)];   % rank-1 perturbation kills nul A
+%S = svd(A); fprintf('last few singular values of A:\n'); S(end-4:end)
+rhs = ue(s.x);                          % velocity data
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
-[up unp] = LapDLPeval(p,s,tau);    % potential and targ n-deriv at test pt
+
+[up pp Tp] = StoDLPeval(p,s,tau,mu);    % vel, pres, trac, at test pts
+fprintf('D rep:\tnative u error @ test pts:\t\t%.3g\n',max(abs(up-ue(p.x))))
+fprintf('\tnative p diff error btw test pts: \t%.3g\n',diff(pp)-diff(pe(p.x)))
+poff = mean(pp - pe(p.x));                   % get observed pres offset in rep
+Tp = Tp - poff*[-real(p.nx);-imag(p.nx)];      % fix traction's pres offset
+fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
+
+return
+
+% *** finish the plots & S test....
+
 fnp = fx(p.x)*real(p.nx) + fy(p.x)*imag(p.nx);   % exact targ n-deriv 
-fprintf('D rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
+
 
 % plot solution on grid & soln errors...
 nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);

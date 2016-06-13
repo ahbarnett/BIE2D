@@ -34,6 +34,9 @@ function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
 %           info.vb = vector of v boundary values (M-by-n)
 %           info.imv = imag part of v at targets (M-by-n)
 %
+% Notes: * complex-valued dens may be used if you know what you're doing
+%          (eg this is used by the Stokes close-evaluation).
+%
 % References:
 %
 %  [hel08] J. Helsing and R. Ojala, On the evaluation of layer potentials close
@@ -75,7 +78,7 @@ if nargout>1                                % want derivatives
   ux = real(vp)'; uy = -imag(vp)';          % leave as partials...
   if nargout==2, ux = ux.*real(t.nx) + uy.*imag(t.nx); end % or dot w/ targ nor
 else
-  v = cauchycompeval(t.x,s,vb,side);        % "
+  v = cauchycompeval(t.x,s,vb,side);        % does Sec. 3 of [lsc2d]
 end
 u = real(v)'; info.imv = imag(v)';        % col vecs *** check for n>1 case
 

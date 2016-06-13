@@ -4,9 +4,14 @@ function [u un] = LapSLPeval(t,s,dens)
 % [u un] = LapSLPeval(t,s,dens)
 %
 % t.x is column vector of targets.
+% dens is a column vector, or stack of n column vectors.
 %
 % Crude native quad and O(NM) RAM for now
-% todo: make O(N+M) & incorporate Gary's scf & couple to FMM.
+%
+% Tested by: LAPINTDIRBVP
+
+% todo: make O(N+M) & incorporate Gary's scf
+% * couple to FMM for each col. * doc formula
 
 % Barnett 6/12/16
 

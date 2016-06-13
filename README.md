@@ -1,39 +1,51 @@
 # BIE2D: MATLAB tools for boundary integral equations on curves in 2D
 
-This set of codes solves piecewise constant linear PDEs using boundary integral equations on curves.  It includes Laplace, Helmholtz, Stokes, log-singular self-evaluations, and close-evaluation quadratures based on the Cauchy kernel.  Also are included periodic BVP solvers.  It is designed to be reasonably efficient yet tutorial in nature (easy to read and well-documented), and could be used as a template for faster Fortran/C versions.
+This set of codes solves boundary value problems for piecewise constant coefficient linear PDEs using potential theory, ie boundary integral equations (BIE) on curves. Quadratures that are very high-order or spectral are used, allowing accuracies approaching machine precision with small numbers of unknowns. The idea is to provide a simple and uniform interface to the evaluation of layer potentials and filling of Nystrom matrices for Laplace, Helmholtz, and Stokes kernels, including modern quadratures for singular self-evaluation, and close-evaluation quadratures (eg based on the Cauchy kernel).  Simple BVP solvers are included, for various geometries including singly and doubly periodic. This provides a sandbox to deliver implementations of various schemes that are under active research by myself and collaborators, as well as by other experts such as R. Kress, J. Helsing. The code is designed to be reasonably efficient, yet tutorial in nature (easy to read and well-documented), and could be used as a template for faster Fortran/C versions.  I plan to include fast algorithsm, panel quadratures (including close-evaluations), and corner quadratures.
 
-
-Code mostly by Alex Barnett, based on work from 2008-2016 
-including MPSpack, LSC2D and other projects.
+Main author: Alex Barnett, based on work from 2008-2016 including subsuming the integral-equation parts of [MPSpack](https://github.com/ahbarnett/mpspack), all of [LSC2D](http://math.dartmouth.edu/~ahb/software/lsc2d.tgz), and my [BIE tutorial](https://math.dartmouth.edu/~fastdirect/notes/quadrtut.zip).
 
 Also includes the following contributions:
 
-  Gary Marple - matrix versions of global close evaluation quadratures  
-  Bowei Wu - Stokes velocity extension from Laplace  
-  L Nick Trefethen - Gaussian quadrature  
+  Gary Marple - matrix versions of global close evaluation quadratures
+  Bowei Wu - Stokes velocity extension from Laplace
+  L Nick Trefethen - Gaussian quadrature
 
-
-## Installation
+### Installation
 
 Download using `git`, `svn`, or as a zip (see green button above).
 
 Open MATLAB in the top level (`BIE2D`) directory, and run `setuppath` to add all needed directories to your path. 
 
-Test by running `testall` which should produce lots of outputs and convergence plots without crashing.
+Test by running `testall` which should produce lots of error outputs close to machine precision, figures, etc, and yet not crash.
 
 Codes have been tested on MATLAB versions from R2012a onwards.
 
 
-## Directories
+### Directories
 
-`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling  
-`utils`   : general numerical utilities  
+`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling
+`utils`   : general numerical utilities
 `test`    : test codes other than built-in self-tests, figure-generating codes
-`solvers` : 2D BVP solver example codes, also serve to test kernels    
-`doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.  
+`solvers` : 2D BVP solver example codes, also serve to test kernels
+`doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.
 
+### Notes and design decisions
 
-## Improvements needed
+1. Every kernel can be accessed as a dense matrix `...mat.m` or as the evaluation given a density `...eval.m`.  Sometimes one of these simply calls the other, but this allows dropping in more efficient versions for either.
 
-* Helmholtz  
-* bring in QBX?  
+1. For all coordinates in $\mathbb{R}^2$ we use complex numbers in the form $x+iy$, since this is very convenient for geometry. For Cauchy integral interpolation we obviously also use complex numbers.
+
+1. Stokes involves vector-valued densities, velocities, etc. For clarity of coding and visualization we have decided to order the node index fast and the vector index slow, ie to stack all the x-components, followed by all the y-components. Matrices thus have a block structure of the form $[A_{11}, A_{12}; A_{21}, A_{22}]$. The other choice of alternating x and y components would be better for RAM locality, and to feed into direct solvers, but we err instead on the side of simplicity/reability and leave this for a Fortran/C implementation. Likewise, we have avoided the use of complex numbers to represent x and y components for Stokes.
+
+1. Will panels be cell arrays of segments, or one large segment struct with breakpoints listed?
+
+### Improvements needed
+
+* Lots of missing pieces, BVP solver demos
+* FMM MEX interfaces
+* kd-tree for close-evaluation lists (Marple)
+* panels
+* Alpert and other options for log-singular kernels
+* Helmholtz bring in from MPSpack
+* corners with panels, bring in from various tests
+* bring in QBX ?
