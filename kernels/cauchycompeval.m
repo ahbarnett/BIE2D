@@ -96,9 +96,9 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 % See also: tests/FIG_CAUCHYCOMPEVAL, SETUPQUAD.
 %
 % Todo: * allow mixed interior/exterior targets, and/or auto-detect this.
+% * Think about if interface should be t.x.
 
-% (c) Alex Barnett 2016
-% based on code from 10/22/13.
+% (c) Alex Barnett 2016. based on code from 10/22/13.
 
 if nargin<1, test_cauchycompeval; return; end
 if nargin<5, o = []; end
@@ -225,7 +225,7 @@ function [vc vcp] = cauchycompmat_lsc2d(x,s,vb,side,o)
 % matrix (note that each column is not a holomorphic function, but be linearity
 % when summed they give the right answer). When sent a single column vector
 % for vb, this duplicates the action of cauchycompeval_lsc2d.
-% Notes by Barnett 6/12/16
+% Undocumented; notes by Barnett 6/12/16
 
 % todo: check v' ext at the node (S-W form), seems to be wrong.
 

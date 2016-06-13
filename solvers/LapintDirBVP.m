@@ -32,12 +32,13 @@ nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
 ug = LapDLPeval(g,s,tau);       % u on grid, expensive bit for now
 fg = f(g.x);                    % known soln on grid
-ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % make arrays for plot
-figure; tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s); caxis([-1 2]);
-colorbar; title('u'); axis tight;
+ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
+figure;
+tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
+caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
-colorbar; caxis([-16 0]); axis tight; title('log_{10} error u');
-% done
+caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
+% BVP done
 
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
 A = A + LapSLPmat(s,s);
