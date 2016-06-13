@@ -15,12 +15,14 @@ function h = showsegment(s, trlist)
 if nargin<1, test_showsegment; return; end
 if nargin<2, trlist = 0; end
 if iscell(s), for i=1:numel(s), showsegment(s{i},trlist); end, return, end
+hold on
 for i=1:numel(trlist)
-  plot(s.x+trlist(i), 'b.-'); axis equal xy; hold on;
+  plot(s.x+trlist(i), 'b.-');
   if isfield(s,'nx')
     l=0.05; plot([s.x, s.x+l*s.nx].'+trlist(i), 'k-');
   end
 end
+axis equal xy
 
 %%%%%%%
 function test_showsegment

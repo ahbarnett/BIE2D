@@ -29,7 +29,7 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 `kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluators and matrix filling  
 `utils`   : general numerical utilities  
 `test`    : test codes other than built-in self-tests, figure-generating codes
-`solvers` : 2D BVP solver example codes, also serves to test kernels    
+`solvers` : 2D BVP solver example codes, also serve to test kernels    
 `doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability.  
 
 

@@ -3,6 +3,8 @@ function [u un] = LapSLPeval(t,s,dens)
 %
 % [u un] = LapSLPeval(t,s,dens)
 %
+% t.x is column vector of targets.
+%
 % Crude native quad and O(NM) RAM for now
 % todo: make O(N+M) & incorporate Gary's scf
 
