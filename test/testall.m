@@ -10,6 +10,7 @@ wobblycurve
 
 % kernels: native quadr
 LapintDirBVP
+testStokernels
 StointDirBVP
 
 % kernels: close eval

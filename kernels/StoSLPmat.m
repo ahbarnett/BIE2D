@@ -43,7 +43,7 @@ function [A,P,T] = StoSLPmat(t,s,mu)
 
 % todo: doc formulae.
 
-self = sameseg(t,d);
+self = sameseg(t,s);
 N = numel(s.x); M = numel(t.x);
 r = repmat(t.x, [1 N]) - repmat(s.x.', [M 1]);    % C-# displacements mat
 irr = 1./(conj(r).*r);         % 1/r^2, used in all cases below
@@ -65,8 +65,8 @@ else                     % distinct src and tar
   A = A .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
 end
 if nargout>1           % pressure (no self-eval)
-  A = (1/2/pi) * [d1.*irr, d2.*irr];
-  A = A .* repmat([s.w(:)' s.w(:)'], [M 1]);              % quadr wei
+  P = (1/2/pi) * [d1.*irr, d2.*irr];
+  P = P .* repmat([s.w(:)' s.w(:)'], [M 1]);              % quadr wei
 end
 if nargout>2           % traction (negative of DLP vel matrix w/ nx,ny swapped)
   rdotn = d1.*repmat(real(t.nx), [1 N]) + d2.*repmat(imag(t.nx), [1 N]);

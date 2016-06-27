@@ -4,6 +4,8 @@ This set of codes solves boundary value problems for piecewise constant coeffici
 
 Main author: Alex Barnett, based on work from 2008-2016 including subsuming the integral-equation parts of [MPSpack](https://github.com/ahbarnett/mpspack), all of [LSC2D](http://math.dartmouth.edu/~ahb/software/lsc2d.tgz), and my [BIE tutorial](https://math.dartmouth.edu/~fastdirect/notes/quadrtut.zip).
 
+Version: 20160627.
+
 Also includes the following contributions:
 
   Gary Marple - matrix versions of global close evaluation quadratures  
@@ -14,7 +16,7 @@ Also includes the following contributions:
 
 Download using `git`, `svn`, or as a zip (see green button above).
 
-Open MATLAB in the top level (`BIE2D`) directory, and run `setuppath` to add all needed directories to your path. 
+Open MATLAB in the top level (`BIE2D`) directory, and run `bie2dsetup` to add all needed directories to your path. 
 
 Test by running `testall` which should produce lots of error outputs close to machine precision, figures, etc, and yet not crash.
 
@@ -42,7 +44,8 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 
 ### Improvements needed
 
-* Lots of missing pieces, BVP solver demos
+* Green's representation theorem tests
+* more BVP solver demos
 * FMM MEX interfaces
 * kd-tree for close-evaluation lists (Marple)
 * panels
