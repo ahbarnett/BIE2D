@@ -45,7 +45,7 @@ for i=1:numel(Ns), N=Ns(i); s = setupquad(s,N);
   d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy - so bad!
   [vc vcp] = Cau_closeglobal(z,s,v(s.x),side,o);       % my bary alg
-  err(i,:) = vc - vz; errp(i,:) = vcp - vpz;
+  err(i,:) = vc.' - vz; errp(i,:) = vcp.' - vpz;
 end
 
 % FIGURE PLOTS
