@@ -1,3 +1,42 @@
+function [u un] = LapDLP(t,s,dens)
+% LAPDLP   Evaluate Laplace double-layer potential from curve to targets
+%
+% This evaluates the 2D Laplace double-layer potential for the density tau,
+%
+%   u(x) = (1/2pi) int_gamma (n_y.(x-y))/r^2 tau(y) ds_y,
+%   where r:=x-y,  x,y in R2,
+%
+%  using the native quadrature rule on the source segment, where point
+%  values of tau are given.
+%
+% [u un] = LapDLP(t,s,dens) evaluates potential and its target-normal
+%  derviative.
+%
+% [A An] = LapDLP(t,s) or LapDLP(t,s,[]) returns matrix which maps a
+%  density vector to the vector of potentials (A) and target-normal derivatives
+%  (An).
+%
+% Tested by: LAPINTDIRBVP
+%
+% Crude native quadr and O(NM) RAM for now
+% todo: make O(N+M) & incorporate Gary's scf
+
+% Barnett 6/12/16. Interface change 6/27/16
+  
+if nargout==1
+  u = LapDLPmat(t,s);            % local matrix filler
+  if nargin>2 && ~isempty(dens)
+    u = u * dens;
+  end
+else
+  [u un] = LapDLPmat(t,s);
+  if nargin>2 && ~isempty(dens)
+    u = u * dens;
+    un = un * dens;
+  end
+end
+%%%%%%
+
 function [A An] = LapDLPmat(t,s)
 % [A An] = LapDLPmat(t,s)
 % plain double-layer kernel matrix & targ n-deriv

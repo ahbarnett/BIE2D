@@ -1,7 +1,7 @@
-function u = StoDLPeval_closeglobal(t, s, sigma, side)
-% STODLPEVAL_CLOSEGLOBAL - close-eval velocity Stokes DLP w/ global quadr curve
+function u = StoDLP_closeglobal(t, s, sigma, side)
+% STODLP_CLOSEGLOBAL - close-eval velocity Stokes DLP w/ global quadr curve
 %
-% u = StoDLPeval_closeglobal(t,s,dens,side) returns velocities at targets t.x
+% u = StoDLP_closeglobal(t,s,dens,side) returns velocities at targets t.x
 %  due to double-layer potential with real-valued density dens sampled on the
 %  nodes s.x of a smooth global quadrature rule on the curve s, either inside
 %  outside the curve.

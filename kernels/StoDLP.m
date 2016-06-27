@@ -1,11 +1,14 @@
-function [A,P,T] = StoDLPmat(t,s,mu)
-% STODLPMAT   Matrices for Stokes double-layer velocity, pressure, and traction.
+function [u,p,T] = StoDLP(t,s,mu,dens)
+% STODLP   Evaluate 2D Stokes single-layer velocity, pressure, and traction.
 %
-% [A,P,T] = StoDLPmat(t,s,mu) returns dense matrices taking double-layer
+% [A,P,T] = StoDLP(t,s,mu) returns dense matrices taking double-layer
 %  density values on the nodes of a source curve to velocity, pressure, and
 %  traction on the nodes of a target curve. Native quadrature is used, apart
 %  from when target=source when A is the self-interaction Nystrom matrix using
 %  the smooth diagonal-limit formula for DLP.
+%
+% [u,p,T] = StoDLP(t,s,mu,dens) evaluates the double-layer density dens,
+%  returning flow velocity u, pressure p, and target-normal traction T.
 %
 % The normalization is as in Sec 2.3 of [HW], and [Mar15].
 %
@@ -24,7 +27,7 @@ function [A,P,T] = StoDLPmat(t,s,mu)
 %  t = target segment struct with t.x nodes, and t.nx normals if traction needed
 %  mu = viscosity
 %
-% Outputs:
+% Outputs: (matrix case)
 %  A = 2M-by-2N matrix taking density (force vector) to velocity on the
 %      target curve. As always for Stokes, ordering is nodes fast,
 %      components (1,2) slow, so that A has 4 large blocks A_11, A_12, etc.
@@ -38,6 +41,30 @@ function [A,P,T] = StoDLPmat(t,s,mu)
 % See also: SETUPQUAD
 
 % Barnett 6/13/16
+
+if nargout==1
+  u = StoDLPmat(t,s,mu);
+  if nargin>3 && ~isempty(dens)
+    u = u * dens;
+  end
+elseif nargout==2
+  [u p] = StoDLPmat(t,s,mu);
+  if nargin>3 && ~isempty(dens)
+    u = u * dens;
+    p = p * dens;
+  end
+else
+  [u p T] = StoDLPmat(t,s,mu);
+  if nargin>3 && ~isempty(dens)
+    u = u * dens;
+    p = p * dens;
+    T = T * dens;
+  end
+end
+%%%%%%
+
+function [A,P,T] = StoDLPmat(t,s,mu)
+% Returns native quadrature matrices, or self-evaluation matrices.
 
 N = numel(s.x); M = numel(t.x);
 r = repmat(t.x, [1 N]) - repmat(s.x.', [M 1]);    % C-# displacements mat

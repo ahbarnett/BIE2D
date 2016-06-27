@@ -1,7 +1,7 @@
 % convergence figs for Cauchy compensated evaluation for LSC2D paper Fig. 3.1.
 % Barnett 10/28/13, repackaged 6/12/16. Path must include ../
 %
-% Also see self-test for cauchycompeval which prints a table of errors, no figs.
+% Also see self-test for Cau_closeglobal which prints a table of errors, no figs
 
 a = .3; w = 5;         % smooth wobbly radial shape params
 R = @(t) 1 + a*cos(w*t); Rp = @(t) -w*a*sin(w*t); Rpp = @(t) -w*w*a*cos(w*t);
@@ -44,7 +44,7 @@ Ns = 20:20:200; err = nan(numel(Ns),numel(z)); errp = err; % N multiple of 4
 for i=1:numel(Ns), N=Ns(i); s = setupquad(s,N);
   d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy - so bad!
-  [vc vcp] = cauchycompeval(z,s,v(s.x),side,o);       % my bary alg
+  [vc vcp] = Cau_closeglobal(z,s,v(s.x),side,o);       % my bary alg
   err(i,:) = vc - vz; errp(i,:) = vcp - vpz;
 end
 

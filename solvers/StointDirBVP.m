@@ -19,7 +19,7 @@ ue = @(x) [imag(x).^2;0*x]; pe = @(x) 2*mu*real(x);   % vel, pres
 Te = @(x,n) 2*mu*[-real(x).*real(n)+imag(x).*imag(n); -real(x).*imag(n)+imag(x).*real(n)];   % trac (n=targ nor)
 
 % double-layer representation...
-A = -eye(2*N)/2 + StoDLPmat(s,s);       % Nystrom discretized integral operator
+A = -eye(2*N)/2 + StoDLP(s,s,mu);       % Nystrom discretized integral operator
 %S = svd(A); fprintf('last few singular values of D-1/2:\n'); S(end-4:end)
 A(:,1) = A(:,1) + [real(s.nx);imag(s.nx)];   % rank-1 perturbation kills nul A
 %S = svd(A); fprintf('last few singular values of A:\n'); S(end-4:end)
@@ -27,7 +27,7 @@ rhs = ue(s.x);                          % velocity data
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 
-[up pp Tp] = StoDLPeval(p,s,tau,mu);    % vel, pres, trac, at test pts
+[up pp Tp] = StoDLP(p,s,mu,tau);        % vel, pres, trac, at test pts
 fprintf('D rep:\tnative u error @ test pts:\t\t%.3g\n',max(abs(up-ue(p.x))))
 fprintf('\tnative p diff error btw test pts: \t%.3g\n',diff(pp)-diff(pe(p.x)))
 poff = mean(pp - pe(p.x));                   % get observed pres offset in rep
@@ -44,7 +44,7 @@ fnp = fx(p.x)*real(p.nx) + fy(p.x)*imag(p.nx);   % exact targ n-deriv
 % plot solution on grid & soln errors...
 nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
-ug = LapDLPeval(g,s,tau);       % u on grid, expensive bit for now
+ug = LapDLP(g,s,tau);       % u on grid, expensive bit for now
 fg = f(g.x);                    % known soln on grid
 ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
 figure; set(gcf,'name', 'DLP native evaluation');
@@ -64,10 +64,10 @@ tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
-A = A + LapSLPmat(s,s);
+A = A + LapSLP(s,s);
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
-[up unp] = LapDLPeval(p,s,tau); [vp vnp] = LapSLPeval(p,s,tau);
+[up unp] = LapDLP(p,s,tau); [vp vnp] = LapSLP(p,s,tau);
 up = up+vp; unp = unp+vnp;
 fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
 

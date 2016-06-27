@@ -18,8 +18,8 @@ mu = 0.3;                % viscosity, some random positive value
 
 disp('test (u,p) pairs satisfy Stokes and their traction correct, using finite diff approx at one pt (expect around 9 digits)...')
 t.x = 3+2i; t.nx = exp(1i*pi/3);  % target pt and normal for traction eval
-fprintf('SLP:'); testPDE(@StoSLPeval,t,s,force,mu)
-fprintf('DLP:'); testPDE(@StoDLPeval,t,s,force,mu)
+fprintf('SLP:'); testPDE(@StoSLP,t,s,force,mu)
+fprintf('DLP:'); testPDE(@StoDLP,t,s,force,mu)
 
 if 1  % vector flow and pressure color plot...
   n = 50; gx = 2*pi*((1:n)-0.5)/n; gy = gx; % target plotting grid
@@ -27,7 +27,7 @@ if 1  % vector flow and pressure color plot...
 Mt = numel(t.x);
 
 % SLP........ swirling due to pushing a force at src pt, mass is conserved
-[u p] = StoSLPeval(t,s,force,mu);
+[u p] = StoSLP(t,s,mu,force);
 u1=reshape(u(1:n*n),[n n]); u2=reshape(u(n*n+1:end),[n n]); p=reshape(p,[n n]);
 figure; imagesc(gx,gy, p);  caxis([-1 1]); hold on; axis xy equal tight;
 plot(s.x, 'r*');
@@ -35,7 +35,7 @@ sc = 50; quiver(gx,gy, u1,u2, sc./norm([u1(:);u2(:)])); title('Stokes SLP')
 
 % DLP.........  note flow is purely radial, but with angular size variation
 figure; %for n = exp(1i*2*pi*(1:100)/100), %v = [real(n);imag(n)]; % anim loop
-[u p] = StoDLPeval(t,s,force,mu);
+[u p] = StoDLP(t,s,mu,force);
 u1=reshape(u(1:n*n),[n n]); u2=reshape(u(n*n+1:end),[n n]); p=reshape(p,[n n]);
 imagesc(gx,gy, p); caxis([-1 1]); hold on; axis xy equal tight;
 plot(s.x, 'r*');
@@ -46,12 +46,12 @@ end
 % Integrate over an enclosing circle...
 N=100; R=0.7; t.x = s.x + R*exp(2i*pi*(1:N)'/N); t.nx = exp(2i*pi*(1:N)'/N);
 t.w = ones(1,N)*2*pi*R/N;   % targ quadr wei
-[u,~,T] = StoSLPeval(t,s,force,mu); Mt = numel(t.x);
+[u,~,T] = StoSLP(t,s,mu,force); Mt = numel(t.x);
 u1 = u(1:Mt); u2 = u(Mt+(1:Mt));  % vel
 f1 = -T(1:Mt); f2 = -T(Mt+(1:Mt));  % force (-traction dot target nx)
 outfl = t.w*(u1.*real(t.nx) + u2.*imag(t.nx));
 fprintf('SLP: net outflow %g, \t net force (%g,%g)\n',outfl,t.w*f1,t.w*f2)
-[u,~,T] = StoDLPeval(t,s,force,mu); Mt = numel(t.x);
+[u,~,T] = StoDLP(t,s,mu,force); Mt = numel(t.x);
 u1 = u(1:Mt); u2 = u(Mt+(1:Mt));  % vel
 f1 = -T(1:Mt); f2 = -T(Mt+(1:Mt));  % force (-traction dot target nx)
 outfl = t.w*(u1.*real(t.nx) + u2.*imag(t.nx));
@@ -59,21 +59,21 @@ fprintf('DLP: net outflow %g, \t net force (%g,%g)\n',outfl,t.w*f1,t.w*f2)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function up = velpres(kernel, xtarg, s, dens, mu)
+function up = velpres(kernel, xtarg, s, mu, dens)
 % wrapper to stack vel and pres of a given kernel, at target xtarg. Ie [u1;u2;p]
-[u p] = kernel(struct('x',xtarg),s,dens,mu);    % works for Sto{S,D}LPeval
+[u p] = kernel(struct('x',xtarg),s,mu,dens);    % works for Sto{S,D}LP
 up = [u;p];
 
 function testPDE(kernel,t,s,v,mu)
 % uses src s w/ force v and targ t to test SLP or DLP satisfies mu-Stokes PDE,
 % and traction correct.
 eps = 1e-4;  % finite difference stencil size
-rhs = applyStokesPDEs(@(x) velpres(kernel,x,s,v,mu),t.x,mu,eps);
+rhs = applyStokesPDEs(@(x) velpres(kernel,x,s,mu,v),t.x,mu,eps);
 fprintf('\tforce equation err = %g, incompressibility err = %g\n',...
         norm(rhs(1:2)),abs(rhs(3)))
 % finite-diff approx to traction @ x,nx...
-T = traction(@(x) velpres(kernel,x,s,v,mu),t.x,t.nx,mu,eps);  % send in targ
-[~,~,Te] = kernel(t,s,v,mu);   % supposedly exact traction eval
+T = traction(@(x) velpres(kernel,x,s,mu,v),t.x,t.nx,mu,eps);  % send in targ
+[~,~,Te] = kernel(t,s,mu,v);   % supposedly exact traction eval
 fprintf('\ttraction err = %g\n',norm(T - Te))
 
 function rhs = applyStokesPDEs(f,x,mu,eps)

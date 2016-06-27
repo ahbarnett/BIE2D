@@ -1,3 +1,41 @@
+function [u un] = LapSLP(t,s,dens)
+% LAPSLP   Evaluate Laplace single-layer potential from curve to targets
+%
+% This evaluates the 2D Laplace single-layer potential for the density tau,
+%
+%   u(x) = (1/2pi) int_gamma log(1/r) tau(y) ds_y,   where r:=x-y,  x,y in R2,
+%
+%  using the native quadrature rule on the source segment gamma, where point
+%  values of tau are given.
+%
+% [u un] = LapSLP(t,s,dens) evaluates potential and its target-normal
+%  derviative.
+%
+% [A An] = LapSLP(t,s) or LapSLP(t,s,[]) returns matrix which maps a
+%  density vector to the vector of potentials (A) and target-normal derivatives
+%  (An).
+%
+% Tested by: LAPINTDIRBVP
+%
+% Crude native quadr and O(NM) RAM for now
+% todo: make O(N+M) & incorporate Gary's scf
+
+% Barnett 6/27/16
+  
+if nargout==1
+  u = LapSLPmat(t,s);
+  if nargin>2 && ~isempty(dens)
+    u = u * dens;
+  end
+else
+  [u un] = LapSLPmat(t,s);
+  if nargin>2 && ~isempty(dens)
+    u = u * dens;
+    un = un * dens;
+  end
+end
+%%%%%%
+
 function [A An] = LapSLPmat(t,s)
 % [A An] = LapSLPmat(t,s)
 % plain single-layer kernel matrix & targ n-deriv

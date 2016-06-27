@@ -34,7 +34,7 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 
 ### Notes and design decisions
 
-1. Every kernel can be accessed as a dense matrix `...mat.m` or as the evaluation given a density `...eval.m`.  Sometimes one of these simply calls the other, but this allows dropping in more efficient versions for either.
+1. Every kernel can be accessed as a dense matrix (if no density function is given), or as the evaluation given a density.  These are bundled into the same calling interface.  Usually one of these simply calls the other, but this allows dropping in more efficient versions for either.
 
 1. For all coordinates in $\mathbb{R}^2$ we use complex numbers in the form $x+iy$, since this is very convenient for geometry. For Cauchy integral interpolation we obviously also use complex numbers.
 
@@ -53,3 +53,7 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 * Helmholtz bring in from MPSpack
 * corners with panels, bring in from various tests
 * bring in QBX ?
+
+### Done
+
+* cleaner kernel interface 6/27/16

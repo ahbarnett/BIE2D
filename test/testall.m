@@ -14,6 +14,6 @@ testStokernels
 StointDirBVP
 
 % kernels: close eval
-cauchycompeval
-fig_cauchycompeval
-LapDLPeval_closeglobal
+Cau_closeglobal
+fig_Cau_closeglobal
+LapDLP_closeglobal

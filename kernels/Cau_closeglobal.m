@@ -1,5 +1,5 @@
-function [vc vcp] = cauchycompeval(x,s,vb,side,o)
-% CAUCHYCOMPEVAL.  Globally compensated barycentric int/ext Cauchy integral
+function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
+% CAU_CLOSEGLOBAL.  Globally compensated barycentric int/ext Cauchy integral
 %
 % This is a spectrally-accurate close-evaluation scheme for Cauchy integrals.
 %  It returns approximate values (and possibly first derivatives) of a function
@@ -30,8 +30,8 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 %  Instead of evaluation, the routine can also return the full M-by-N dense
 %  matrix allowing evaluation for any vector of v at the nodes.
 %
-% Basic use:  v = cauchycompeval(x,s,vb,side)
-%             [v vp] = cauchycompeval(x,s,vb,side)
+% Basic use:  v = Cau_closeglobal(x,s,vb,side)
+%             [v vp] = Cau_closeglobal(x,s,vb,side)
 %
 % Inputs:
 %  x = row or col vec of M targets, as points in complex plane
@@ -60,9 +60,9 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 %  reasonable numbers and a separate call done for each).
 %
 % If vb is empty, the outputs v and vp are instead the dense evaluation
-%  matrices, which costs O(N^2M) time.
+%  matrices, and the time cost is O(N^2M).
 %
-% Advanced use: [vc vcp] = cauchycompeval(x,s,vb,side,opts) allows control of
+% Advanced use: [vc vcp] = Cau_closeglobal(x,s,vb,side,opts) allows control of
 % options such as
 %   opts.delta : switches to a different [lsc2d] scheme for v', which is
 %                non-barycentric for distances beyond delta, but O(N) slower
@@ -71,7 +71,8 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 %                For this scheme, s must have the following extra field:
 %                    s.a  = a point in the "deep" interior of curve (far from
 %                           the boundary)
-%                delta=0 never uses the barycentric form for v'.
+%                delta=0 never uses the barycentric form for v', loses digits
+%                in v' as target approaches source.
 %
 % References:
 %
@@ -93,16 +94,16 @@ function [vc vcp] = cauchycompeval(x,s,vb,side,o)
 %          A. H. Barnett, B. Wu, and S. Veerapaneni, SIAM J. Sci. Comput.,
 %          37(4), B519-B542 (2015)   https://arxiv.org/abs/1410.2187
 %
-% See also: tests/FIG_CAUCHYCOMPEVAL, SETUPQUAD.
+% See also: test/FIG_CAU_CLOSEGLOBAL, SETUPQUAD.
 %
 % Todo: * allow mixed interior/exterior targets, and/or auto-detect this.
 % * Think about if interface should be t.x.
 
-% (c) Alex Barnett 2016. based on code from 10/22/13.
+% (c) Alex Barnett, June 2016. based on code from 10/22/13.
 
-if nargin<1, test_cauchycompeval; return; end
+if nargin<1, test_Cau_closeglobal; return; end
 if nargin<5, o = []; end
-if isfield(o,'delta') || size(vb,2)>1     % we don't have matrix version here
+if isfield(o,'delta')
   if ~isfield(s,'a'), error('s.a interior pt needed to use lsc2d version'); end
   if nargout==1, vc = cauchycompeval_lsc2d(x,s,vb,side,o);
   else, [vc vcp] = cauchycompeval_lsc2d(x,s,vb,side,o); end
@@ -119,6 +120,17 @@ if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
 vc = I0./J0;                                          % bary form
 [jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
 for l=1:numel(jj), vc(ii(l)) = vb(jj(l)); end   % replace each hit w/ corresp vb
+
+%{
+***
+  I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 n]),1),[3 2 1]);
+  J0 = sum(pcomp); % Ioakimidis notation
+  vc = I0./(ones(n,1)*J0);                        % bary form
+  if side=='e', vc = vc./(ones(n,1)*(x(:).'-s.a)); end         % correct w/ pole
+  [jj ii] = ind2sub(size(comp),find(~isfinite(comp))); % node-targ coincidences
+  for l=1:numel(jj), vc(:,ii(l)) = vb(jj(l),:).'; end % replace each hit w/ corresp vb
+***
+%}
 
 if nargout>1     % 1st deriv also wanted... Trefethen idea first get v' @ nodes
   vbp = 0*vb;    % prealloc v' @ nodes
@@ -222,7 +234,7 @@ end
 function [vc vcp] = cauchycompmat_lsc2d(x,s,vb,side,o)
 % Multiple vb-vector version of cauchycompeval_lsc2d, written by Gary Marple
 % and Bowei Wu, 2014-2015. This can be called with eye(N) to fill the evaluation
-% matrix (note that each column is not a holomorphic function, but be linearity
+% matrix (note that each column is not a holomorphic function, but by linearity
 % when summed they give the right answer). When sent a single column vector
 % for vb, this duplicates the action of cauchycompeval_lsc2d.
 % Undocumented; notes by Barnett 6/12/16
@@ -292,7 +304,7 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
-function test_cauchycompeval          % only test eval, not the matrix version
+function test_Cau_closeglobal         % only test eval, not the matrix version
 a = .3; w = 5;         % smooth wobbly radial shape params
 N = 200;               % must be multiple of 4
 t = (1:N)/N*2*pi; s.x = (1 + a*cos(w*t)).*exp(1i*t);
@@ -311,7 +323,7 @@ for side = 'ie'
   
   d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy (so bad!)
-  [vc vcp] = cauchycompeval(z,s,v(s.x),side);    % current version
+  [vc vcp] = Cau_closeglobal(z,s,v(s.x),side);    % current version
   %s.a=0; [vc vcp] = cauchycompeval(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself, where wrong.
   err = abs(vc - vz); errp = abs(vcp - vpz);
   disp(['side ' side ':  dist        v err       v'' err'])

@@ -1,7 +1,7 @@
-function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
-% LAPDLPEVAL_CLOSEGLOBAL - Laplace potential & deriv w/ global close-eval quad
+function [u ux uy info] = LapDLP_closeglobal(t, s, dens, side)
+% LAPDLP_CLOSEGLOBAL - Laplace potential & deriv w/ global close-eval quad
 %
-% u = LapDLPeval_closeglobal(t,s,dens,side) returns potentials at targets t.x
+% u = LapDLP_closeglobal(t,s,dens,side) returns potentials at targets t.x
 %  due to double-layer potential with real-valued density dens sampled on the
 %  nodes s.x of a smooth global quadrature rule on the curve s, either inside
 %  outside the curve. The global scheme of [hel08] based on barycentric Cauchy
@@ -47,7 +47,7 @@ function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
 %          A. H. Barnett, B. Wu, and S. Veerapaneni, SIAM J. Sci. Comput.,
 %          37(4), B519-B542 (2015)   https://arxiv.org/abs/1410.2187
 %
-% See also: LAPDLPEVAL, SETUPQUAD, CAUCHYCOMPEVAL, LAPINTDIRBVP
+% See also: LAPDLP, SETUPQUAD, CAU_CLOSEGLOBAL, LAPINTDIRBVP
 %
 % complexity O(N^2) for evaluation of v^+ or v^-, plus O(NM) for globally
 % compensated quadrature to targets
@@ -55,7 +55,7 @@ function [u ux uy info] = LapDLPeval_closeglobal(t, s, dens, side)
 % Barnett 2013; multiple-column generalization by Gary Marple, 2014.
 % Repackaged Barnett 6/12/16
 
-if nargin==0, test_LapDLPevalfar; return; end
+if nargin==0, test_LapDLP_closeglobal; return; end
 n = size(dens,2);                   % # dens columns
 N = numel(s.x);                     % # source nodes
 
@@ -74,16 +74,16 @@ info.vb = vb;                       % diagnostics
 
 % Helsing step 2: compensated close-evaluation of u = Re(v) & its deriv...
 if nargout>1                                % want derivatives
-  [v vp] = cauchycompeval(t.x,s,vb,side);   % does Sec. 3 of [lsc2d]
+  [v vp] = Cau_closeglobal(t.x,s,vb,side);   % does Sec. 3 of [lsc2d]
   ux = real(vp)'; uy = -imag(vp)';          % leave as partials...
   if nargout==2, ux = ux.*real(t.nx) + uy.*imag(t.nx); end % or dot w/ targ nor
 else
-  v = cauchycompeval(t.x,s,vb,side);        % does Sec. 3 of [lsc2d]
+  v = Cau_closeglobal(t.x,s,vb,side);        % does Sec. 3 of [lsc2d]
 end
 u = real(v)'; info.imv = imag(v)';        % col vecs *** check for n>1 case
 
 %%%%%%%%%%%%%%%%%%%
-function test_LapDLPevalfar         % check far-field matches the native rule
+function test_LapDLP_closeglobal  % check far-field matches the native rule
 s = wobblycurve(0.3,5,200); figure; showsegment(s);
 tau = sin(3*s.t);                        % pick smooth density
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
@@ -91,8 +91,8 @@ for side = 'ie'
   if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
   else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
   plot(t.x,'.');
-  [u un] = LapDLPeval(t,s,tau);
-  [uc unc] = LapDLPeval_closeglobal(t,s,tau,side);
+  [u un] = LapDLP(t,s,tau);
+  [uc unc] = LapDLP_closeglobal(t,s,tau,side);
   side, max(abs(u-uc)), max(abs(un-unc))
 end
 
