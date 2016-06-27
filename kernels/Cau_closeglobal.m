@@ -97,12 +97,20 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 % See also: test/FIG_CAU_CLOSEGLOBAL, SETUPQUAD.
 %
 % Todo: * allow mixed interior/exterior targets, and/or auto-detect this.
+% * O(N) faster matrix filling version!
 % * Think about if interface should be t.x.
+% Note output changed to col vec, 6/27/16
 
-% (c) Alex Barnett, June 2016. based on code from 10/22/13.
+% (c) Alex Barnett, June 2016, based on code from 10/22/13.
 
 if nargin<1, test_Cau_closeglobal; return; end
-if nargin<5, o = []; end
+if nargin<5, o = []; end    
+N = numel(s.x);
+if isempty(vb)                  % do matrix filling version (N data col vecs)
+  if nargout==1, vc = Cau_closeglobal(x,s,eye(N),side,o);  % THIS IS SLOW!
+  else, [vc vcp] = Cau_closeglobal(x,s,eye(N),side,o); end
+  return
+end
 if isfield(o,'delta')
   if ~isfield(s,'a'), error('s.a interior pt needed to use lsc2d version'); end
   if nargout==1, vc = cauchycompeval_lsc2d(x,s,vb,side,o);
@@ -110,49 +118,75 @@ if isfield(o,'delta')
   return
 end
 
-cw = s.cw;                    % complex speed weights
-N = numel(s.x); M = numel(x);
+M = numel(x); Nc = size(vb,2);   % # targets, input col vecs
+cw = s.cw;                       % complex speed weights
 
-% Do bary interp for value outputs. note sum along 1-axis faster than 2-axis...
-comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
-I0 = sum(repmat(vb(:),[1 M]).*comp); J0 = sum(comp);  % Ioakimidis notation
-if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
-vc = I0./J0;                                          % bary form
-[jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
-for l=1:numel(jj), vc(ii(l)) = vb(jj(l)); end   % replace each hit w/ corresp vb
-
-%{
-***
-  I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 n]),1),[3 2 1]);
-  J0 = sum(pcomp); % Ioakimidis notation
-  vc = I0./(ones(n,1)*J0);                        % bary form
-  if side=='e', vc = vc./(ones(n,1)*(x(:).'-s.a)); end         % correct w/ pole
-  [jj ii] = ind2sub(size(comp),find(~isfinite(comp))); % node-targ coincidences
-  for l=1:numel(jj), vc(:,ii(l)) = vb(jj(l),:).'; end % replace each hit w/ corresp vb
-***
-%}
-
-if nargout>1     % 1st deriv also wanted... Trefethen idea first get v' @ nodes
-  vbp = 0*vb;    % prealloc v' @ nodes
-  if side=='i'
-    for j=1:N
-      notj = [1:j-1, j+1:N];  % std Schneider-Werner form for deriv @ node...
-      vbp(j) = -sum(cw(notj).*(vb(j)-vb(notj))./(s.x(j)-s.x(notj)))/cw(j);
+if Nc==1  % ----------------------------  original single-vector version -----
+  % Do bary interp for value outputs. note sum along 1-axis faster than 2-axis
+  comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
+  I0 = sum(repmat(vb(:),[1 M]).*comp); J0 = sum(comp);  % Ioakimidis notation
+  if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
+  vc = (I0./J0).';                                      % bary form (col vec)
+  [jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
+  for l=1:numel(jj), vc(ii(l)) = vb(jj(l)); end % replace each hit w/ corresp vb
+  
+  if nargout>1   % 1st deriv also wanted... Trefethen idea first get v' @ nodes
+    vbp = 0*vb;  % prealloc v' @ nodes
+    if side=='i'
+      for j=1:N
+        notj = [1:j-1, j+1:N];  % std Schneider-Werner form for deriv @ node...
+        vbp(j) = -sum(cw(notj).*(vb(j)-vb(notj))./(s.x(j)-s.x(notj)))/cw(j);
+      end
+    else
+      for j=1:N
+        notj = [1:j-1, j+1:N];  % ext version of S-W form derived 6/12/16...
+        vbp(j) = (-sum(cw(notj).*(vb(j)-vb(notj))./(s.x(j)-s.x(notj)))-2i*pi*vb(j))/cw(j);
+        %abs(vbp(j) / (2i*pi*vb(j)/cw(j))) % shows 2.5 digits of cancel, bad!
+      end
     end
-  else
-    for j=1:N
-      notj = [1:j-1, j+1:N];  % exterior version of S-W form derived 6/12/16...
-      vbp(j) = (-sum(cw(notj).*(vb(j)-vb(notj))./(s.x(j)-s.x(notj)))-2i*pi*vb(j))/cw(j);
-      %abs(vbp(j) / (2i*pi*vb(j)/cw(j))) % shows 2.5 digits of cancellation, bad
-    end
+    % now again do bary interp of v' using its value vbp at nodes...
+    I0 = sum(repmat(vbp,[1 M]).*comp); J0 = sum(comp);
+    if side=='e', J0 = J0-2i*pi; end                  % Helsing exterior form
+    vcp = (I0./J0).';                                 % bary form (col vec)
+    for l=1:numel(jj), vcp(ii(l)) = vbp(jj(l)); end   % replace each hit w/ vbp
   end
-  % now again do bary interp of v' using its value vbp at nodes...
-  I0 = sum(repmat(vbp(:),[1 M]).*comp); J0 = sum(comp);
-  if side=='e', J0 = J0-2i*pi; end                    % Helsing exterior form
-  vcp = I0./J0;                                       % bary form
-  for l=1:numel(jj), vcp(ii(l)) = vbp(jj(l)); end     % replace each hit w/ vbp
+  
+else    % ------------------------------ multi-vector version ---------------
+  % Do bary interp for value outputs:
+  % Precompute weights in O(NM)... note sum along 1-axis faster than 2-axis...
+  comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
+  % mult input vec version (transp of Wu/Marple): comp size N*N, I0 size N*Nc
+  I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
+  J0 = sum(comp).';  % size N*1, Ioakimidis notation
+  if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
+  vc = I0./repmat(J0,[1 Nc]);     % bary form (multi-vec), size M*Nc
+  [jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
+  for l=1:numel(jj), vc(ii(l),:) = vb(jj(l),:); end     % replace each hit w/ corresp vb
+  
+  if nargout>1   % 1st deriv also wanted... Trefethen idea first get v' @ nodes
+    vbp = 0*vb;  % prealloc v' @ nodes (size N*Nc)
+    if side=='i'
+      for j=1:N
+        notj = [1:j-1, j+1:N];  % std Schneider-Werner form for deriv @ node...
+        vbp(j,:) = -sum(repmat(cw(notj),[1 Nc]).*(repmat(vb(j,:),[N-1,1])-vb(notj,:)).*repmat(1./(s.x(j)-s.x(notj)),[1 Nc]))/cw(j); % (multi-vec, Wu/Marple)
+      end
+    else
+      for j=1:N
+        notj = [1:j-1, j+1:N];  % ext version of S-W form derived 6/12/16...
+        vbp(j,:) = (-sum(repmat(cw(notj),[1 Nc]).*(repmat(vb(j,:),[N-1,1])-vb(notj,:)).*repmat(1./(s.x(j)-s.x(notj)),[1 Nc])) -2i*pi*vb(j,:) )/cw(j);
+        % shows 2.5 digits of cancellation, bad:
+        %abs(vbp(j) / (2i*pi*vb(j)/cw(j)))   % (Nc=1 case)
+      end
+    end
+    % now again do bary interp of v' using its value vbp at nodes...
+    I0 = permute(sum(repmat(permute(vbp,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
+    J0 = sum(comp).';
+    if side=='e', J0 = J0-2i*pi; end                    % Helsing exterior form
+    vcp = I0./repmat(J0,[1 Nc]);                        % bary form
+    for l=1:numel(jj), vcp(ii(l),:) = vbp(jj(l),:); end % replace hits w/ vbp
+  end
 end
-
+%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [vc, vcp] = cauchycompeval_lsc2d(x,s,vb,side,o)
@@ -304,19 +338,20 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
-function test_Cau_closeglobal         % only test eval, not the matrix version
+function test_Cau_closeglobal
 a = .3; w = 5;         % smooth wobbly radial shape params
 N = 200;               % must be multiple of 4
 t = (1:N)/N*2*pi; s.x = (1 + a*cos(w*t)).*exp(1i*t);
 s = setupquad(s);
 
+%profile clear; profile on;
 format short g
-for side = 'ie'
+for side = 'ie'       % test Cauchy formula for holomorphic funcs in and out...
   a = 1.1+1i; if side=='e', a = .1+.5i; end % pole, dist 0.5 from G, .33 for ext
   v = @(z) 1./(z-a); vp = @(z) -1./(z-a).^2;   % used in paper
 
   z0 = s.x(N/4);
-  ds = logspace(0,-18,10)*(.1-1i); % displacements
+  ds = logspace(0,-18,10).'*(.1-1i); % displacements (col vec)
   if side=='e', ds = -ds; end % flip to outside
   z = z0 + ds; z(end) = z0; % ray of pts heading to a node, w/ last hit exactly
   vz = v(z); vpz = vp(z); M = numel(z);
@@ -324,10 +359,18 @@ for side = 'ie'
   d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy (so bad!)
   [vc vcp] = Cau_closeglobal(z,s,v(s.x),side);    % current version
-  %s.a=0; [vc vcp] = cauchycompeval(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself, where wrong.
+  %s.a=0; [vc vcp] = Cau_closeglobal(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself, where wrong.
   err = abs(vc - vz); errp = abs(vcp - vpz);
   disp(['side ' side ':  dist        v err       v'' err'])
-  [abs(imag(ds))' err' errp']
+  [abs(imag(ds)) err errp]
+  
+  % test multi-col-vec inputs:
+  [vcm vcpm] = Cau_closeglobal(z,s,[v(s.x),0.5*v(s.x)],side); % basic Nc=2 case
+  fprintf('  multi-col test: %.3g %.3g\n',norm(vcm(:,1)-vc), norm(vcpm(:,1)-vcp))
+  [A Ap] = Cau_closeglobal(s.x,s,[],side);   % test N*N self matrix version
+  fprintf('  self-eval value ||A-I|| (should be 0):          %.3g\n', norm(A-eye(N)))  
+  fprintf('  self-eval deriv mat apply err (tests S-W form): %.3g\n',max(abs(Ap*v(s.x)-vp(s.x))))
 end
 
+%profile off; profile viewer
 %figure; plot(s.x,'k.-'); hold on; plot(z,'+-'); axis equal
