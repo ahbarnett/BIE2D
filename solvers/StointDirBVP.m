@@ -9,7 +9,7 @@
 clear;
 mu = 0.7;              % viscosity
 a = .3; w = 5;         % smooth wobbly radial shape params
-N = 250; s = wobblycurve(a,w,N);
+N = 300; s = wobblycurve(a,w,N);
 
 p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
 %figure; showsegment({s p})
@@ -25,7 +25,7 @@ A(:,1) = A(:,1) + [real(s.nx);imag(s.nx)];   % rank-1 perturbation kills nul A
 %S = svd(A); fprintf('last few singular values of A:\n'); S(end-4:end)
 rhs = ue(s.x);                          % velocity data
 tau = A \ rhs;
-fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
+fprintf('Sto int Dir BVP resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 
 [up pp Tp] = StoDLP(p,s,mu,tau);        % vel, pres, trac, at test pts
 fprintf('D rep:\tnative u error @ test pts:\t\t%.3g\n',max(abs(up-ue(p.x))))
@@ -40,10 +40,10 @@ nx = 100; gx = max(abs(s.x))*linspace(-1,1,nx);
 tic, [ug pg] = StoDLP(g,s,mu,tau); toc    % u, p on grid, expensive bit for now
 ueg = ue(g.x);                       % known u soln on grid
 ug = reshape(ug,[nx nx 2]); ueg = reshape(ueg,[nx nx 2]);
-figure; set(gcf,'name', 'Sto DLP native u evaluation');
+figure; set(gcf,'name', 'Sto DLP native u eval');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
 tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
-caxis([-1 2]); colorbar; axis tight; title('u');
+caxis([0 1.5]); colorbar; axis tight; title('u');
 uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
 tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
@@ -51,21 +51,22 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan(2*nx^2,1);  % eval only at int pts
-tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i'); toc  % NB two cmpts
+tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i'); toc  % ii's for 2 cmpts
+fprintf('max grid DLP vel cmpt close eval err: %.g\n',max(abs(ug(:)-ueg(:))))
 ug = reshape(ug,[nx nx 2]);
-figure; set(gcf,'name', 'Sto DLP close u evaluation');
+figure; set(gcf,'name', 'Sto DLP close u eval');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
 tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
-caxis([-1 2]); colorbar; axis tight; title('u');
+caxis([0 1.5]); colorbar; axis tight; title('u');
 uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
 tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
-A = A + StoSLP(s,s,mu);   % make it the D+S rep
+A = A + StoSLP(s,s,mu);   % make it the D+S rep (tests S self)
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
-[upD ppD TpD] = StoDLP(p,s,mu,tau); [upS ppS TpS] = StoSLP(p,s,mu,tau);
+[upD ppD TpD] = StoDLP(p,s,mu,tau); [upS ppS TpS] = StoSLP(p,s,mu,tau); % eval
 up = upD+upS; pp = ppD+ppS; Tp = TpD+TpS;    % vel, pres, trac, at test pts
 fprintf('D+S rep: native u error @ test pts:\t\t%.3g\n',max(abs(up-ue(p.x))))
 fprintf('\tnative p diff error btw test pts: \t%.3g\n',diff(pp)-diff(pe(p.x)))
@@ -73,5 +74,14 @@ poff = mean(pp - pe(p.x));                   % get observed pres offset in rep
 Tp = Tp - poff*[-real(p.nx);-imag(p.nx)];      % fix traction's pres offset
 fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 
-% todo test SLP close
-% ***
+% again use close-evaluation scheme on same interior pts to test S close...
+tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i') + StoSLP_closeglobal(g,s,mu,tau,'i'); toc  % ii's for 2 cmpts
+fprintf('max grid D+S vel cmpt close eval err: %.g\n',max(abs(ug(:)-ueg(:))))
+ug = reshape(ug,[nx nx 2]);
+figure; set(gcf,'name', 'Sto D+S close u eval');
+spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
+tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
+caxis([0 1.5]); colorbar; axis tight; title('u');
+uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
+tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
+caxis('auto'); colorbar; axis tight; title('log_{10} error u');

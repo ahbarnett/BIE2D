@@ -85,40 +85,8 @@ end
 
 u = I1+I2-I3-I4;
 
-u=[real(u);imag(u)];    % always stack [u1;u2]
+u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 
 % test which is causing slow convergence at nearby pt (side='e', vary N):
 % jj= find(abs(x - (0.7-0.9i))<1e-12); I1(jj), I2(jj), I3(jj)+I4(jj)
-% ans: it's I1, of course. (Alex)
-
-% keyboard
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% *** break into utils:
-
-function testfftinterp
-n = 50;
-N = 100;
-x = 2*pi*(0:n-1)/n;
-f = @(x) exp(sin(x));
-g = fftinterp(f(x),N);
-ge = f(2*pi*(0:N-1)/N);
-% g ./ ge
-norm(g - ge)
-
-function g = fftinterp(f,N)
-% FFTINTERP - resample periodically sampled function onto finer grid
-%
-% g = fftinterp(f,N)
-% inputs:  f - (row or column) vector length n of samples
-%          N - desired output number of samples, must be >= n
-% outputs: g - vector length N of interpolant, (row or col as f was)
-% Note on phasing: the output and input grid first entry align.
-% Barnett 9/5/14.  To do: downsample case N<n
-n = numel(f);
-if N==n, g = f; return; end
-if mod(N,2)~=0 || mod(n,2)~=0, warning('N and n must be even'); end
-F = fft(f(:).');    % row vector
-g = ifft([F(1:n/2) F(n/2+1)/2 zeros(1,N-n-1) F(n/2+1)/2 F(n/2+2:end)]);
-g = g*(N/n);   % factor from the ifft
-if size(f,1)>size(f,2), g = g(:); end % make col vector
+% ans: it's I1, of course. (Alex, 2013)

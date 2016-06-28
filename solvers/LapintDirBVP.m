@@ -22,7 +22,7 @@ fx = @(z) real(fpholom(z)); fy = @(z) -imag(fpholom(z)); % partials, note sign!
 A = -eye(N)/2 + LapDLP(s,s);       % Nystrom discretized integral operator
 rhs = f(s.x);
 tau = A \ rhs;
-fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
+fprintf('Lap int Dir BVP resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 [up unp] = LapDLP(p,s,tau);        % potential and targ n-deriv at test pt
 fnp = fx(p.x)*real(p.nx) + fy(p.x)*imag(p.nx);   % exact targ n-deriv
 fprintf('D rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
@@ -43,6 +43,7 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
 tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i'); toc
+fprintf('max grid DLP pot close eval err: %.g\n',max(abs(ug(:)-fg(:))))
 figure; set(gcf,'name', 'Lap DLP close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
@@ -59,6 +60,7 @@ fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),u
 
 % again use close-evaluation scheme on same interior pts only, now D+S...
 tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i') + LapSLP_closeglobal(g,s,tau,'i'); toc
+fprintf('max grid D+S pot close eval err: %.g\n',max(abs(ug(:)-fg(:))))
 figure; set(gcf,'name', 'Lap D+S close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
