@@ -40,8 +40,9 @@ function [u,p,T] = StoDLP(t,s,mu,dens)
 %
 % See also: SETUPQUAD
 
-% Barnett 6/13/16
+% Barnett 6/13/16, 6/27/16
 
+if numel(mu)~=1, error('mu must be a scalar'); end
 if nargout==1
   u = StoDLPmat(t,s,mu);
   if nargin>3 && ~isempty(dens)

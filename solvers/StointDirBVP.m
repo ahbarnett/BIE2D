@@ -9,7 +9,7 @@
 clear;
 mu = 0.7;              % viscosity
 a = .3; w = 5;         % smooth wobbly radial shape params
-N = 200; s = wobblycurve(a,w,N);
+N = 250; s = wobblycurve(a,w,N);
 
 p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
 %figure; showsegment({s p})
@@ -34,34 +34,34 @@ poff = mean(pp - pe(p.x));                   % get observed pres offset in rep
 Tp = Tp - poff*[-real(p.nx);-imag(p.nx)];      % fix traction's pres offset
 fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 
-return
-
-% *** finish the plots & S test....
-
-fnp = fx(p.x)*real(p.nx) + fy(p.x)*imag(p.nx);   % exact targ n-deriv 
-
-
 % plot solution on grid & soln errors...
-nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
+nx = 100; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
-ug = LapDLP(g,s,tau);       % u on grid, expensive bit for now
-fg = f(g.x);                    % known soln on grid
-ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
-figure; set(gcf,'name', 'DLP native evaluation');
-tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
+[ug pg] = StoDLP(g,s,mu,tau);        % u, p on grid, expensive bit for now
+ueg = ue(g.x);                       % known u soln on grid
+ug = reshape(ug,[nx nx 2]); ueg = reshape(ueg,[nx nx 2]);
+figure; set(gcf,'name', 'Sto DLP native u evaluation');
+spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
+tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
-tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
+uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
+tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 % basic BVP done
 
 % instead use close-evaluation scheme...
-ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
-ug(ii) = LapDLPeval_closeglobal(g,s,tau,'i');
-figure; set(gcf,'name', 'DLP close evaluation');
-tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
+ii = s.inside(g.x); g.x = g.x(ii); ug = nan(2*nx^2,1);  % eval only at int pts
+ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i');  % NB two cmpts
+ug = reshape(ug,[nx nx 2]);
+figure; set(gcf,'name', 'Sto DLP close u evaluation');
+spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
+tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
-tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
+uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
+tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
+
+return
 
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
 A = A + LapSLP(s,s);

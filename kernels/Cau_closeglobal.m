@@ -27,24 +27,27 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 %  and is helpful to understand [hel08] and [sw86].  This code replaces code
 %  referred to in [lsc2d].
 %
-%  Instead of evaluation, the routine can also return the full M-by-N dense
-%  matrix allowing evaluation for any vector of v at the nodes.
+%  The routine can (when vb is empty) instead return the full M-by-N dense
+%  matrices mapping v at the nodes to values (and derivatives) at targets.
 %
 % Basic use:  v = Cau_closeglobal(x,s,vb,side)
 %             [v vp] = Cau_closeglobal(x,s,vb,side)
 %
 % Inputs:
-%  x = row or col vec of M targets, as points in complex plane
+%  x = row or col vec of M target points in complex plane
 %  s = closed curve struct containing a set of vectors with N items each:
-%       s.x  = smooth quadrature nodes on curve, as points in complex plane
+%       s.x  = smooth quadrature nodes on curve, points in complex plane
 %       s.w  = smooth weights for arc-length integrals (scalar "speed weights")
-%       s.nx = unit normals at nodes (unit complex numbers)
-%  vb = row or col vec of N boundary values of holomorphic function v
+%       s.nx = unit normals at nodes (unit magnitude complex numbers)
+%  vb = col vec (or stack of such) of N boundary values of holomorphic function
+%       v. If empty, causes outputs to be the dense matrix/matrices.
 %  side = 'i' or 'e' specifies if all targets interior or exterior to curve.
 %
 % Outputs:
-%  v  = row vec approximating the homolorphic function v at the M targets
-%  vp = (optional) row vec of complex first derivative v' at the M targets
+%  v  = col vec (or stack of such) approximating the homolorphic function v
+%       at the M targets
+%  vp = col vec (or stack of such) approximatring the complex first derivative
+%       v' at the M targets
 %
 % Without input arguments, a self-test is done outputting errors at various
 %  distances from the curve for a fixed N. (Needs setupquad.m)
@@ -60,7 +63,7 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 %  reasonable numbers and a separate call done for each).
 %
 % If vb is empty, the outputs v and vp are instead the dense evaluation
-%  matrices, and the time cost is O(N^2M).
+%  matrices, and the time cost is O(N^2M) --- this should be rewritten.
 %
 % Advanced use: [vc vcp] = Cau_closeglobal(x,s,vb,side,opts) allows control of
 % options such as
@@ -99,7 +102,7 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 % Todo: * allow mixed interior/exterior targets, and/or auto-detect this.
 % * O(N) faster matrix filling version!
 % * Think about if interface should be t.x.
-% Note output changed to col vec, 6/27/16
+% Note in/output format changed to col vecs, 6/27/16
 
 % (c) Alex Barnett, June 2016, based on code from 10/22/13.
 
@@ -107,7 +110,7 @@ if nargin<1, test_Cau_closeglobal; return; end
 if nargin<5, o = []; end    
 N = numel(s.x);
 if isempty(vb)                  % do matrix filling version (N data col vecs)
-  if nargout==1, vc = Cau_closeglobal(x,s,eye(N),side,o);  % THIS IS SLOW!
+  if nargout==1, vc = Cau_closeglobal(x,s,eye(N),side,o);  % THIS IS MN^2 SLOW!
   else, [vc vcp] = Cau_closeglobal(x,s,eye(N),side,o); end
   return
 end
@@ -152,6 +155,7 @@ if Nc==1  % ----------------------------  original single-vector version -----
   end
   
 else    % ------------------------------ multi-vector version ---------------
+  % Note: this is non-optimal as method for matrix filling, due to incoming 0s.
   % Do bary interp for value outputs:
   % Precompute weights in O(NM)... note sum along 1-axis faster than 2-axis...
   comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
@@ -159,7 +163,7 @@ else    % ------------------------------ multi-vector version ---------------
   I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
   J0 = sum(comp).';  % size N*1, Ioakimidis notation
   if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
-  vc = I0./repmat(J0,[1 Nc]);     % bary form (multi-vec), size M*Nc
+  vc = I0./(J0*ones(1,Nc));                 % bary form (multi-vec), size M*Nc
   [jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
   for l=1:numel(jj), vc(ii(l),:) = vb(jj(l),:); end     % replace each hit w/ corresp vb
   
@@ -168,12 +172,14 @@ else    % ------------------------------ multi-vector version ---------------
     if side=='i'
       for j=1:N
         notj = [1:j-1, j+1:N];  % std Schneider-Werner form for deriv @ node...
-        vbp(j,:) = -sum(repmat(cw(notj),[1 Nc]).*(repmat(vb(j,:),[N-1,1])-vb(notj,:)).*repmat(1./(s.x(j)-s.x(notj)),[1 Nc]))/cw(j); % (multi-vec, Wu/Marple)
+        % Note repmat reverted to outer prod w/ ones, faster (Wu/Marple)
+        vbp(j,:) = -sum((cw(notj)*ones(1,Nc)).*((ones(N-1,1)*vb(j,:))-vb(notj,:)).*((1./(s.x(j)-s.x(notj)))*ones(1,Nc)))/cw(j);  % vectorized sorry, dear reader
       end
     else
       for j=1:N
         notj = [1:j-1, j+1:N];  % ext version of S-W form derived 6/12/16...
-        vbp(j,:) = (-sum(repmat(cw(notj),[1 Nc]).*(repmat(vb(j,:),[N-1,1])-vb(notj,:)).*repmat(1./(s.x(j)-s.x(notj)),[1 Nc])) -2i*pi*vb(j,:) )/cw(j);
+        % Note repmat reverted to outer prod w/ ones, faster (Wu/Marple)
+        vbp(j,:) = (-sum((cw(notj)*ones(1,Nc)).*((ones(N-1,1)*vb(j,:))-vb(notj,:)).*((1./(s.x(j)-s.x(notj)))*ones(1,Nc))) -2i*pi*vb(j,:) )/cw(j);  % vectorized sorry, dear reader
         % shows 2.5 digits of cancellation, bad:
         %abs(vbp(j) / (2i*pi*vb(j)/cw(j)))   % (Nc=1 case)
       end
@@ -182,7 +188,7 @@ else    % ------------------------------ multi-vector version ---------------
     I0 = permute(sum(repmat(permute(vbp,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
     J0 = sum(comp).';
     if side=='e', J0 = J0-2i*pi; end                    % Helsing exterior form
-    vcp = I0./repmat(J0,[1 Nc]);                        % bary form
+    vcp = I0./(J0*ones(1,Nc));                          % bary form
     for l=1:numel(jj), vcp(ii(l),:) = vbp(jj(l),:); end % replace hits w/ vbp
   end
 end
@@ -338,25 +344,19 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
-function test_Cau_closeglobal
-a = .3; w = 5;         % smooth wobbly radial shape params
-N = 200;               % must be multiple of 4
-t = (1:N)/N*2*pi; s.x = (1 + a*cos(w*t)).*exp(1i*t);
-s = setupquad(s);
-
-%profile clear; profile on;
+function test_Cau_closeglobal     % test self-reproducing of Cauchy integrals
+N = 200; s = wobblycurve(0.3,5,N);   % smooth wobbly radial shape params
+tic; %profile clear; profile on;
 format short g
 for side = 'ie'       % test Cauchy formula for holomorphic funcs in and out...
   a = 1.1+1i; if side=='e', a = .1+.5i; end % pole, dist 0.5 from G, .33 for ext
   v = @(z) 1./(z-a); vp = @(z) -1./(z-a).^2;   % used in paper
-
-  z0 = s.x(N/4);
+  z0 = s.x(floor(N/4));
   ds = logspace(0,-18,10).'*(.1-1i); % displacements (col vec)
   if side=='e', ds = -ds; end % flip to outside
   z = z0 + ds; z(end) = z0; % ray of pts heading to a node, w/ last hit exactly
   vz = v(z); vpz = vp(z); M = numel(z);
-  
-  d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
+    %d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat for...
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy (so bad!)
   [vc vcp] = Cau_closeglobal(z,s,v(s.x),side);    % current version
   %s.a=0; [vc vcp] = Cau_closeglobal(z,s,v(s.x),side,struct('delta',.01)); % oldbary alg, 0.5-1 digit better for v' ext, except at the node itself, where wrong.
@@ -364,13 +364,15 @@ for side = 'ie'       % test Cauchy formula for holomorphic funcs in and out...
   disp(['side ' side ':  dist        v err       v'' err'])
   [abs(imag(ds)) err errp]
   
-  % test multi-col-vec inputs:
+  % test multi-col-vec inputs & mat filling:
   [vcm vcpm] = Cau_closeglobal(z,s,[v(s.x),0.5*v(s.x)],side); % basic Nc=2 case
-  fprintf('  multi-col test: %.3g %.3g\n',norm(vcm(:,1)-vc), norm(vcpm(:,1)-vcp))
+  fprintf('  multi-col test: %.3g %.3g\n',max(abs(vcm(:,1)-vc)), max(abs(vcpm(:,1)-vcp)))
+  [A Ap] = Cau_closeglobal(z,s,[],side);     % matrix fill case
+  fprintf('  mat fill test: %.3g %.3g\n',max(abs(A*v(s.x)-vc)), max(abs(Ap*v(s.x)-vcp)))
   [A Ap] = Cau_closeglobal(s.x,s,[],side);   % test N*N self matrix version
   fprintf('  self-eval value ||A-I|| (should be 0):          %.3g\n', norm(A-eye(N)))  
   fprintf('  self-eval deriv mat apply err (tests S-W form): %.3g\n',max(abs(Ap*v(s.x)-vp(s.x))))
 end
 
-%profile off; profile viewer
+toc, %profile off; profile viewer
 %figure; plot(s.x,'k.-'); hold on; plot(z,'+-'); axis equal

@@ -1,6 +1,6 @@
 % Basic solver for Laplace interior Dirichlet BVP on smooth curve.
-% Also serves to test the native SLP and DLP matrix and eval routines.
-% Barnett 6/12/16
+% Also serves to test the native SLP and DLP matrix and (close) eval routines.
+% Barnett 6/12/16-6/27/16
 %
 % References: see Ch. 6 of this:
 %
@@ -33,27 +33,36 @@ nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
 ug = LapDLP(g,s,tau);           % u on grid, expensive bit for now
 fg = f(g.x);                    % known soln on grid
 ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
-figure; set(gcf,'name', 'DLP native evaluation');
+figure; set(gcf,'name', 'Lap DLP native eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
-% basic BVP done
+% basic BVP done ------
 
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
 ug(ii) = LapDLP_closeglobal(g,s,tau,'i');
-figure; set(gcf,'name', 'DLP close evaluation');
+figure; set(gcf,'name', 'Lap DLP close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
-% mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
-A = A + LapSLP(s,s);
+% Mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
+A = A + LapSLP(s,s);   % D+S rep
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 [up unp] = LapDLP(p,s,tau); [vp vnp] = LapSLP(p,s,tau);
 up = up+vp; unp = unp+vnp;
 fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
+
+% again use close-evaluation scheme...
+ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
+ug(ii) = LapDLP_closeglobal(g,s,tau,'i') + LapSLP_closeglobal(g,s,tau,'i'); %D+S
+figure; set(gcf,'name', 'Lap D+S close eval');
+tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
+caxis([-1 2]); colorbar; axis tight; title('u');
+tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
+caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 

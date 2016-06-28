@@ -42,10 +42,11 @@ function [u,p,T] = StoSLP(t,s,mu,dens)
 %
 % See also: SETUPQUAD, LAPSLP.
 
-% Barnett 6/12/16; T diag limit as in Bowei code SLPmatrixp 6/13/16
+% Barnett 6/12/16; T diag limit as in Bowei code SLPmatrixp 6/13/16. 6/27/16
 
 % todo: doc formulae.
 
+if numel(mu)~=1, error('mu must be a scalar'); end
 if nargout==1
   u = StoSLPmat(t,s,mu);
   if nargin>3 && ~isempty(dens)

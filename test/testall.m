@@ -4,6 +4,7 @@
 
 % utils
 perispecdiff
+perispecinterp
 setupquad
 showsegment
 wobblycurve
@@ -16,4 +17,5 @@ StointDirBVP
 % kernels: close eval
 Cau_closeglobal
 fig_Cau_closeglobal
-LapDLP_closeglobal
+LapSLP_closeglobal
+%LapDLP_closeglobal
