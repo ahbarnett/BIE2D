@@ -30,7 +30,7 @@ fprintf('D rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp
 % plot solution on grid & soln errors...
 nx = 200; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
-ug = LapDLP(g,s,tau);           % u on grid, expensive bit for now
+tic; ug = LapDLP(g,s,tau); toc          % u on grid, expensive bit for now
 fg = f(g.x);                    % known soln on grid
 ug = reshape(ug,[nx nx]); fg = reshape(fg,[nx nx]);  % shape arrays for plot
 figure; set(gcf,'name', 'Lap DLP native eval');
@@ -42,7 +42,7 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
-ug(ii) = LapDLP_closeglobal(g,s,tau,'i');
+tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i'); toc
 figure; set(gcf,'name', 'Lap DLP close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
@@ -57,9 +57,8 @@ fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 up = up+vp; unp = unp+vnp;
 fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
 
-% again use close-evaluation scheme...
-ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
-ug(ii) = LapDLP_closeglobal(g,s,tau,'i') + LapSLP_closeglobal(g,s,tau,'i'); %D+S
+% again use close-evaluation scheme on same interior pts only, now D+S...
+tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i') + LapSLP_closeglobal(g,s,tau,'i'); toc
 figure; set(gcf,'name', 'Lap D+S close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');

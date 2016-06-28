@@ -44,20 +44,19 @@ function [A An] = LapDLPmat(t,s)
 % No jump included on self-interaction (ie principal-value integral).
 % Self-evaluation for the hypersingular An currently gives inf.
 
-% Barnett 6/12/16 from stuff since 2008.
+% Barnett 6/12/16 from stuff since 2008. speed repmat->bsxfun 6/28/16
 N = numel(s.x); M = numel(t.x);
-d = repmat(t.x, [1 N]) - repmat(s.x.', [M 1]);    % C-# displacements mat
-ny = repmat(s.nx.', [M 1]);      % identical rows given by src normals
-A = (1/2/pi) * real(ny./d);      % complex form of dipole
+d = bsxfun(@minus,t.x,s.x.');                 % C-# displacements mat
+% mult by identical rows given by source normals...
+A = real(bsxfun(@rdivide,(1/2/pi)*s.nx.',d)); % complex form of dipole
 if sameseg(t,s)                  % self?
-  A(diagind(A)) = -s.cur/4/pi; end           % diagonal term for Laplace
-A = A .* repmat(s.w(:)', [M 1]);
+  A(diagind(A)) = -s.cur*(1/4/pi); end        % diagonal term for Laplace
+A = bsxfun(@times, A, s.w(:)');
 if nargout>1     % deriv of double-layer. Not correct for self-interaction.
-  csry = conj(ny).*d;              % (cos phi + i sin phi).r
-  nx = repmat(t.nx, [1 N]);        % identical cols given by target normals
-  csrx = conj(nx).*d;              % (cos th + i sin th).r
-  r = abs(d);                      % dist matrix R^{MxN}
-  An = -real(csry.*csrx)./(r.^2.^2)/(2*pi);
-  An = An .* repmat(s.w(:)', [M 1]);
+  csry = bsxfun(@times, conj(s.nx.'), d);     % (cos phi + i sin phi).r
+  % identical cols given by target normals...
+  csrx = bsxfun(@times, conj(t.nx), d);       % (cos th + i sin th).r
+  r = abs(d);                             % dist matrix R^{MxN}
+  An = -real(csry.*csrx)./((r.^2).^2);    % divide is faster than bxsfun here
+  An = bsxfun(@times, An, (1/2/pi)*s.w(:)');
 end
-

@@ -45,6 +45,7 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 ### Improvements needed
 
 * exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
+* Stokes mat fill bsxfun
 * Green's representation theorem tests
 * more BVP solver demos
 * FMM MEX interfaces

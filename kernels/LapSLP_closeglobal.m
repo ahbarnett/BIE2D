@@ -51,9 +51,10 @@ function [u ux uy info] = LapSLP_closeglobal(t, s, tau, side)
 % Repackaged Barnett 6/12/16, 6/27/16 col vec outputs, 6/28/16 vp 'e' corrected
 % todo: * efficient special case of matrix filling, join Steps 1 & 2 with dgemm.
 
-if nargin==0, %testCSLPselfmatrix;
+if nargin==0
+  %testCSLPselfmatrix;
   test_LapSLP_closeglobal; return; end
-N = numel(s.x);   M = numel(t.x);   % # source, target nodes
+N = numel(s.x); M = numel(t.x);     % # source, target nodes
 if isempty(tau), tau = eye(N); end  % case of filling matrices
 n = size(tau,2);                    % # density columns
 

@@ -18,4 +18,4 @@ StointDirBVP
 Cau_closeglobal
 fig_Cau_closeglobal
 LapSLP_closeglobal
-%LapDLP_closeglobal
+LapDLP_closeglobal
