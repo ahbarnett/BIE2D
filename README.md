@@ -45,7 +45,6 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 ### Improvements needed
 
 * exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
-* Stokes mat fill bsxfun
 * Green's representation theorem tests
 * more BVP solver demos
 * FMM MEX interfaces
@@ -62,3 +61,5 @@ Codes have been tested on MATLAB versions from R2012a onwards.
 * cleaner kernel interface without mat or eval suffices
 * some repmats -> ones for speed
 * derivs for 'e' LapSLP_closeglobal corrected for nonzero totchg.
+* Stokes mat fills bsxfun, StoSLP debug via BVP for now
+

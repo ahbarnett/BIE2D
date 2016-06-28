@@ -35,6 +35,7 @@ function [u,p,T] = StoSLP(t,s,mu,dens)
 %      components (1,2) slow, so that A has 4 large blocks A_11, A_12, etc.
 %  P = M-by-2N matrix taking density to pressure (scalar) on target nodes.
 %  T = 2M-by-2N matrix taking density to normal traction on target nodes.
+% Outputs: (density case) all are col vecs (as if N=1).
 %
 % Notes: 1) Uses whatever self-interaction quadrature Laplace SLP uses
 %
@@ -73,35 +74,35 @@ function [A,P,T] = StoSLPmat(t,s,mu)
 
 self = sameseg(t,s);
 N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.', [M 1]);    % C-# displacements mat
-irr = 1./(conj(r).*r);         % 1/r^2, used in all cases below
-d1 = real(r); d2 = imag(r);
+r = bsxfun(@minus, t.x, s.x.');          % C-# displacements mat
+irr = 1./(conj(r).*r);                   % 1/r^2, used in all cases below
+d1 = real(r); d2 = imag(r);              % worth storing I think
 c = 1/(4*pi*mu);              % factor from Hsiao-Wendland book, Ladyzhenskaya
 if self
-  S = LapSLP(s,s);                      % note includes speed weights.
-  A = (1/2/mu) * kron(S,eye(2));        % prefactor & diagonal log-part blocks
+  S = LapSLP(s,s);                    % note includes speed weights
+  A = kron((1/2/mu)*eye(2),S);        % prefactor & diagonal log-part blocks
   t1 = real(s.tang); t2 = imag(s.tang); % now add r tensor r part, 4 blocks
   A11 =  d1.^2.*irr; A11(diagind(A11)) = t1.^2;     % diagonal limits
   A12 =  d1.*d2.*irr; A12(diagind(A12)) = t1.*t2;
   A22 =  d2.^2.*irr; A22(diagind(A22)) = t2.^2;
-  A = A + c*[A11 A12; A12 A22].*repmat([s.w(:)' s.w(:)'], [2*M 1]); % pref & wei
-else                     % distinct src and tar
+  A = A + bsxfun(@times, [A11 A12; A12 A22], c*[s.w(:)' s.w(:)']); % pref & wei
+else                     % distinct src and targ
   logir = -log(abs(r));  % log(1/r) diag block
   A12 = d1.*d2.*irr;     % off diag vel block
   A = c*[logir + d1.^2.*irr, A12;                         % u_x
          A12,                logir + d2.^2.*irr];         % u_y
-  A = A .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
+  A = bsxfun(@times, A, [s.w(:)' s.w(:)']);               % quadr wei
 end
 if nargout>1           % pressure (no self-eval)
-  P = (1/2/pi) * [d1.*irr, d2.*irr];
-  P = P .* repmat([s.w(:)' s.w(:)'], [M 1]);              % quadr wei
+  P = [d1.*irr, d2.*irr];
+  P = bsxfun(@times, P, (1/2/pi)*[s.w(:)' s.w(:)']);      % quadr wei
 end
 if nargout>2           % traction (negative of DLP vel matrix w/ nx,ny swapped)
-  rdotn = d1.*repmat(real(t.nx), [1 N]) + d2.*repmat(imag(t.nx), [1 N]);
+  rdotn = bsxfun(@times, d1, real(t.nx)) + bsxfun(@times, d2, imag(t.nx));
   rdotnir4 = rdotn.*(irr.*irr); clear rdotn
-  A12 = -(1/pi)*d1.*d2.*rdotnir4;
-  T = [-(1/pi)*d1.^2.*rdotnir4,   A12;                    % own derivation
-     A12,                      -(1/pi)*d2.^2.*rdotnir4];
+  A12 = (-1/pi)*d1.*d2.*rdotnir4;
+  T = [(-1/pi)*d1.^2.*rdotnir4,   A12;                    % own derivation
+     A12,                      (-1/pi)*d2.^2.*rdotnir4];
   if self
     c = -s.cur/2/pi;           % diagonal limit of Laplace DLP
     tx = 1i*s.nx; t1=real(tx); t2=imag(tx);     % tangent vectors on the curve
@@ -110,5 +111,5 @@ if nargout>2           % traction (negative of DLP vel matrix w/ nx,ny swapped)
     T(sub2ind(size(T),1:N,1+N:2*N)) = c.*t1.*t2;
     T(sub2ind(size(T),1+N:2*N,1+N:2*N)) = c.*t2.^2;
   end
-  T = T .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
+  T = bsxfun(@times, T, [s.w(:)' s.w(:)']);      % quadr wei
 end

@@ -37,7 +37,7 @@ fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 % plot solution on grid & soln errors...
 nx = 100; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
-[ug pg] = StoDLP(g,s,mu,tau);        % u, p on grid, expensive bit for now
+tic, [ug pg] = StoDLP(g,s,mu,tau); toc    % u, p on grid, expensive bit for now
 ueg = ue(g.x);                       % known u soln on grid
 ug = reshape(ug,[nx nx 2]); ueg = reshape(ueg,[nx nx 2]);
 figure; set(gcf,'name', 'Sto DLP native u evaluation');
@@ -51,7 +51,7 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan(2*nx^2,1);  % eval only at int pts
-ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i');  % NB two cmpts
+tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i'); toc  % NB two cmpts
 ug = reshape(ug,[nx nx 2]);
 figure; set(gcf,'name', 'Sto DLP close u evaluation');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
@@ -61,13 +61,17 @@ uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
 tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
-return
-
 % mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
-A = A + LapSLP(s,s);
+A = A + StoSLP(s,s,mu);   % make it the D+S rep
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
-[up unp] = LapDLP(p,s,tau); [vp vnp] = LapSLP(p,s,tau);
-up = up+vp; unp = unp+vnp;
-fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),unp-fnp)
+[upD ppD TpD] = StoDLP(p,s,mu,tau); [upS ppS TpS] = StoSLP(p,s,mu,tau);
+up = upD+upS; pp = ppD+ppS; Tp = TpD+TpS;    % vel, pres, trac, at test pts
+fprintf('D+S rep: native u error @ test pts:\t\t%.3g\n',max(abs(up-ue(p.x))))
+fprintf('\tnative p diff error btw test pts: \t%.3g\n',diff(pp)-diff(pe(p.x)))
+poff = mean(pp - pe(p.x));                   % get observed pres offset in rep
+Tp = Tp - poff*[-real(p.nx);-imag(p.nx)];      % fix traction's pres offset
+fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 
+% todo test SLP close
+% ***

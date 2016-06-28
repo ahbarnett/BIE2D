@@ -50,7 +50,7 @@ tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
 % Mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
-A = A + LapSLP(s,s);   % D+S rep
+A = A + LapSLP(s,s);   % make it the D+S rep
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
 [up unp] = LapDLP(p,s,tau); [vp vnp] = LapSLP(p,s,tau);

@@ -66,12 +66,14 @@ end
 
 function [A,P,T] = StoDLPmat(t,s,mu)
 % Returns native quadrature matrices, or self-evaluation matrices.
+% some repmat->bsxfun 6/28/16
 
 N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.', [M 1]);    % C-# displacements mat
+r = bsxfun(@minus,t.x,s.x.');                 % C-# displacements mat
 irr = 1./(conj(r).*r);    % 1/r^2, used in all cases below
 d1 = real(r); d2 = imag(r);
-rdotny = d1.*repmat(real(s.nx)', [M 1]) + d2.*repmat(imag(s.nx)', [M 1]);
+%rdotny = d1.*repmat(real(s.nx)', [M 1]) + d2.*repmat(imag(s.nx)', [M 1]);
+rdotny = bsxfun(@times, d1, real(s.nx)') + bsxfun(@times, d2, imag(s.nx)');
 rdotnir4 = rdotny.*(irr.*irr); if nargout==1, clear rdotny; end
 A12 = (1/pi)*d1.*d2.*rdotnir4;  % off diag vel block
 A = [(1/pi)*d1.^2.*rdotnir4,   A12;                     % Ladyzhenskaya
@@ -84,11 +86,13 @@ if sameseg(t,s)         % self-int DLP velocity diagonal correction
   A(sub2ind(size(A),1:N,1+N:2*N)) = c.*t1.*t2;
   A(sub2ind(size(A),1+N:2*N,1+N:2*N)) = c.*t2.^2;
 end
-A = A .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
+A = bsxfun(@times, A, [s.w(:)' s.w(:)']);            % quadr wei
 if nargout>1           % pressure of DLP (no self-int)
-  P = [(mu/pi)*(-repmat(real(s.nx)', [M 1]).*irr + 2*rdotnir4.*d1), ...
-       (mu/pi)*(-repmat(imag(s.nx)', [M 1]).*irr + 2*rdotnir4.*d2)  ];
-  P = P .* repmat([s.w(:)' s.w(:)'], [M 1]);           % quadr wei
+%  P = [(mu/pi)*(-repmat(real(s.nx)', [M 1]).*irr + 2*rdotnir4.*d1), ...
+%       (mu/pi)*(-repmat(imag(s.nx)', [M 1]).*irr + 2*rdotnir4.*d2)  ];
+  P = [bsxfun(@times, real(-s.nx)',irr) + 2*rdotnir4.*d1, ...
+       bsxfun(@times, imag(-s.nx)',irr) + 2*rdotnir4.*d2  ];
+  P = bsxfun(@times, P, (mu/pi)*[s.w(:)' s.w(:)']);            % quadr wei
 end
 if nargout>2           % traction, my derivation of formula (no self-int)
   nx1 = repmat(real(t.nx), [1 N]); nx2 = repmat(imag(t.nx), [1 N]);
@@ -101,6 +105,5 @@ if nargout>2           % traction, my derivation of formula (no self-int)
   T = T + [nx1.*ny1.*irr, nx1.*ny2.*irr; nx2.*ny1.*irr, nx2.*ny2.*irr] + ...
       kron(ones(2),dx.*irr) .* [ny1.*d1, ny1.*d2; ny2.*d1, ny2.*d2] + ...
       kron(ones(2),dy.*irr) .* [d1.*nx1, d1.*nx2; d2.*nx1, d2.*nx2];
-  T = (mu/pi) * T;                                        % prefac
-  T = T .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
+  T = bsxfun(@times, T, (mu/pi)*[s.w(:)' s.w(:)']);    % prefac & quadr wei
 end

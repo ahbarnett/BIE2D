@@ -45,7 +45,7 @@ function [A An] = LapDLPmat(t,s)
 % Self-evaluation for the hypersingular An currently gives inf.
 
 % Barnett 6/12/16 from stuff since 2008. speed repmat->bsxfun 6/28/16
-N = numel(s.x); M = numel(t.x);
+N = numel(s.x);
 d = bsxfun(@minus,t.x,s.x.');                 % C-# displacements mat
 % mult by identical rows given by source normals...
 A = real(bsxfun(@rdivide,(1/2/pi)*s.nx.',d)); % complex form of dipole
@@ -58,5 +58,5 @@ if nargout>1     % deriv of double-layer. Not correct for self-interaction.
   csrx = bsxfun(@times, conj(t.nx), d);       % (cos th + i sin th).r
   r = abs(d);                             % dist matrix R^{MxN}
   An = -real(csry.*csrx)./((r.^2).^2);    % divide is faster than bxsfun here
-  An = bsxfun(@times, An, (1/2/pi)*s.w(:)');
+  An = bsxfun(@times, An, (1/2/pi)*s.w(:)');   % prefac & quadr wei
 end
