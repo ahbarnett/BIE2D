@@ -46,7 +46,8 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 
 ### Action items
 
-* bring over doublyperiodic
+* finish bring over doublyperiodic, pres figs
+* multiple closed curves (islands) helpers, use for dpls figs?
 * [decide priority] exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
 * Green's representation theorem kernel tests for Lap, then Sto (ugh), so don't rely on BIE density soln for basic kernel tests
 * more BVP solver demos (eg bring over testStokesSDevalclose.m w/ all 4 BVPs)

@@ -1,7 +1,7 @@
 function fig_lapQconv
-% self-contained code for figs for doubly periodic empty BVP convergence
-% Laplace case.
-% Barnett 5/9/16.   Adapted from perineu2dnei1.m
+% make figs for doubly periodic empty BVP convergence, Laplace case.
+% All matrix-filling, native quadr.
+% Barnett 5/9/16, adapted from perineu2dnei1.m. bie2d 6/29/16
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
@@ -10,12 +10,12 @@ lso.RECT = true;  % linsolve opts, forces QR even when square (LU much worse)
 rho=1.5; z0 = rho * exp(0.7i);       % singularity in v exact soln
 ve = @(z) log(abs(z-z0));   % exact soln and its partials...
 vex = @(z) real(z-z0)./abs(z-z0).^2; vey = @(z) imag(z-z0)./abs(z-z0).^2;
-testpartials(ve,vex,vey)
+disp('test partials of known exact v:'); testpartials(ve,vex,vey)
 
 U.e1 = 1; U.e2 = 1i; U.nei = 0;  % unit cell
 Rp = 1.4;
 M = 100; p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = setupquad(p);    % proxy pts
-proxyrep = @LapSLPmat;   % SLPmatrix or DLPmatrix sets proxy pt type
+proxyrep = @LapSLP;   % sets proxy pt type via a kernel function call
 
 nt = 100; t.x = rand(nt,1)-0.5 + 1i*(rand(nt,1)-0.5);  % rand test pts in UC
 %[xx yy] = meshgrid(linspace(-.5,.5,10)); t.x = xx(:)+1i*yy(:); % tp grid in UC
@@ -24,7 +24,7 @@ Atest = proxyrep(t,p);   % evaluation matrix, only changes when M does
 % m-conv plot
 ms = 2:2:24; verrs = nan*ms;
 for i=1:numel(ms)
-  [L R B T] = walls(U,ms(i));
+  [U L R B T] = doublywalls(U,ms(i));
   Q = Qmat(p,L,R,B,T,proxyrep);
   g = discrep(L,R,B,T,ve,vex,vey);
   xi = linsolve(Q,g,lso); %norm(xi)
@@ -38,9 +38,9 @@ axis([min(ms) max(ms) 1e-16 1]);
 text(4,1e-1,'(a)','fontsize',12);
 text(15,1e-1,'$M=100$','interpreter','latex','fontsize',12);
 set(gcf,'paperposition',[0 0 3 3]);
-%print -depsc2 ../paper/lapQmconv.eps
+%print -depsc2 figs/lapQmconv.eps
 
-m = 20; [L R B T] = walls(U,m); g = discrep(L,R,B,T,ve,vex,vey); % fix
+m = 20; [U L R B T] = doublywalls(U,m); g = discrep(L,R,B,T,ve,vex,vey); % fix
 w = [0*L.w L.w 0*B.w B.w]';   % supposed left null-vector
 nsings = 6;           % how many singular values to keep and show
 Ms = 10:5:120;
@@ -71,7 +71,7 @@ text(15,max(nrms)/10,'(b)','fontsize',12);
 text(90,max(nrms)/10,'$m=20$','interpreter','latex','fontsize',12);
 set(gcf,'paperposition',[0 0 3 3]);
 set(gca,'ytickmode','manual', 'ytick',[1e-15 1e-10 1e-5 1 1e5]);
-%print -depsc2 ../paper/lapQMconv.eps
+%print -depsc2 figs/lapQMconv.eps
 
   
 %%%%%%%%%%%%%%%%%
@@ -81,13 +81,6 @@ eps = 1e-5;
 z = 1-0.5i;
 vx(z) - (v(z+eps)-v(z-eps))/(2*eps)        % should be around 1e-10
 vy(z) - (v(z+1i*eps)-v(z-1i*eps))/(2*eps)  % "
-
-function [L R B T] = walls(U,M)
-[x w] = gauss(M); w=w/2;
-L.x = (-U.e1 + U.e2*x)/2; L.nx = (-1i*U.e2)/abs(U.e2) + 0*L.x; L.w=w*abs(U.e2);
-R = L; R.x = L.x + U.e1;
-B.x = (-U.e2 + U.e1*x)/2; B.nx = (1i*U.e1)/abs(U.e1) + 0*B.x; B.w=w*abs(U.e1);
-T = B; T.x = B.x + U.e2;
 
 function Q = Qmat(p,L,R,B,T,proxyrep) % matrix Q given proxy and colloc pts
 [QL QLn] = proxyrep(L,p); [QR QRn] = proxyrep(R,p);

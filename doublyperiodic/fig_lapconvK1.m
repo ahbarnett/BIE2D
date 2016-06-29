@@ -1,21 +1,22 @@
 function fig_lapconvK1
-% Laplace Neu periodic BVP, convergence and soln plots
-% Single inclusion (K=1).
-% cleaned up from perineu2dnei1.m
-% Barnett 5/11/16. Small codes broken out 6/12/16 (no longer self-contained)
+% Laplace Neu periodic BVP, convergence and soln plots. Single inclusion (K=1).
+% All dense matrices, native quadr for solve, close eval for plot.
+% Barnett, cleaned up from perineu2dnei1.m 5/11/16.
+% Small codes broken out 6/12/16 (no longer self-contained); BIE2D 6/29/16
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
 lso.RECT = true;  % linsolve opts, forces QR even when square (LU much worse),
 % ...and much faster than the following backward-stable SVD solve:
 %[UE,S,V] = svd(E,'econ'); Sr = max(diag(S),1e-14); co = V*((UE'*rhs)./Sr);
+format long g
 
 jumps = [1 0]; %[0 1];  % potential jumps across R-L and T-B (not for known sol)
 
 U.e1 = 1; U.e2 = 1i;     % unit cell lattice vectors and src direct sum list...
 U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:); % 3x3
-m = 22; [U L R B T] = walls(U,m);
-proxyrep = @LapSLPmat;   % sets proxy pt type
+m = 22; [U L R B T] = doublywalls(U,m);
+proxyrep = @LapSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.4; M = 80;        % proxy params
 p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = setupquad(p); % proxy pts
 
@@ -57,7 +58,7 @@ if 1   % figure
   text(-.45,0,'L');text(0.55,0,'R'); text(0,-.42,'D');text(0,0.58,'U');
   text(0,0,'$\Omega$','interpreter','latex');
   text(-1.2,1.3,'(a)'); %,'fontsize',14);
-  %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 lapsolK1.eps
+  %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/lapsolK1.eps
 end
 
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
@@ -93,8 +94,11 @@ for i=1:numel(Ns)
   es(i) = uk(2)-uk(1)-(uek(2)-uek(1));      % err vs known diff btw test pts
 end
 fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
+disp('pot diff N-convergence for ELS, Schur, their diff:')
 [us',ust',us'-ust']
+disp('flux J1 N-convergence for ELS, Schur, their diff:')
 [Js(1,:)',Jst(1,:)',Js(1,:)'-Jst(1,:)']
+disp('flux J2 N-convergence for ELS, Schur, their diff:')
 [Js(2,:)',Jst(2,:)',Js(2,:)'-Jst(2,:)']
 figure; %semilogy(Ns,res,'ro-');  % why is resid always around 1e-14?
 semilogy(Ns,abs(us-us(i)),'+-'); hold on;
@@ -108,12 +112,12 @@ legend('u conv ELS','J_1 conv ELS','u conv Schur','J_1 conv Schur','u err vs kno
 xlabel('N'); text(40,1e-4,'(c)');
 text(140,1e-8, sprintf('$M=%d$,     $m=%d$',M,m),'interpreter','latex');
 axis([Ns(1) Ns(end-1) 1e-15 1e-3]);
-%set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 lapconvK1.eps
+%set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapconvK1.eps
 end
 
 %keyboard
 
-if 1, Ms = 10:5:120;    % -------------------- M convergence, incl Schur
+if 1, Ms = 10:5:120;    % -------------------- M convergence (not incl Schur)
 N = 100; s = wormcurve(a,b,N);  % fixed
 rhs = [0*s.x; jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x];   % driving
 Js = nan(2,numel(Ms)); nrms = nan*Ms;
@@ -127,6 +131,7 @@ for i=1:numel(Ms)
   nrms(i) = norm(co);
   Js(:,i) = evalfluxes(s,p,proxyrep,U,co);
 end
+disp('flux J1 M-convergence for ELS:')
 Js(1,:)'
 figure; semilogy(Ms,abs(Js(1,:)-Js(1,end)),'b+-'); hold on;
 semilogy(Ms,sings(:,2:end),'-','color',.5*[1 1 1]);
@@ -135,10 +140,10 @@ semilogy(Ms,nrms,'b.-');
 text(15,max(nrms)/10,'(e)');
 text(60,max(nrms)/10,sprintf('$N=%d,   m=%d$',N,m),'interpreter','latex');
 xlabel('M'); axis([Ms(1) Ms(end-1) 1e-17 max(nrms)]);
-%set(gcf,'paperposition',[0 0 3 3]); print -depsc2 lapMconv.eps
+%set(gcf,'paperposition',[0 0 3 3]); print -depsc2 figs/lapMconv.eps
 end
 
-if 0 % ------------ Schur tests warm-up (see above for convergence)
+if 0 % --------- old Schur tests warm-up (see above for their convergence)
   N = 140; s = wormcurve(a,b,N);    % reset curve
   M = 40; p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = setupquad(p); % reset proxy pts
   rhs = [0*s.x; jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x];   % driving
@@ -150,29 +155,17 @@ if 0 % ------------ Schur tests warm-up (see above for convergence)
   %[U S V] = svd(Q); S = diag(S); r = numel(S); figure; plot(U(:,r),'+-');
 end
 
-
-
 %keyboard
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-function [U L R B T] = walls(U,M)  % setup walls with M nodes for unit cell U
-[x w] = gauss(M); w=w/2;
-L.x = (-U.e1 + U.e2*x)/2; L.nx = (-1i*U.e2)/abs(U.e2) + 0*L.x; L.w=w*abs(U.e2);
-R = L; R.x = L.x + U.e1;
-B.x = (-U.e2 + U.e1*x)/2; B.nx = (1i*U.e1)/abs(U.e1) + 0*B.x; B.w=w*abs(U.e1);
-T = B; T.x = B.x + U.e2;
-U.L = L; U.T = T; U.R = R; U.B = B;
 
 function u = evalsol(s,p,proxyrep,U,z,co)
 % z = list of targets as C values. p = proxy struct, s = source curve struct
 % co = full coeff vec, U = unit cell struct.  Does potential value only.
 N = numel(s.x);
-sig = co(1:N); psi = co(N+1:end);  % split up solution coeffs (psi=proxy)
-u = proxyrep(struct('x',z), p) * psi;  % init u w/ proxies
+sig = co(1:N); psi = co(N+1:end);     % split up solution coeffs (psi=proxy)
+u = proxyrep(struct('x',z), p, psi);  % init u w/ proxies eval
 for i=1:numel(U.trlist)         % sum potentials faster than srcsum matrices
-  u = u + srcsum(@LapSLPmat, U.trlist(i), struct('x',z), s) * sig;  % pot of SLP
+  u = u + srcsum(@LapSLP, U.trlist(i),[], struct('x',z), s, sig);  % pot of SLP
 end
 
 function J = evalfluxes(s,p,proxyrep,U,co)
@@ -189,16 +182,16 @@ for i=-1:1      % set up big loop of 12 walls, just their nodes
   x{i+8} = U.B.x +i*U.e1 -U.e2; x{i+11} = x{i+8} + 3*U.e2;
 end
 t.x = vertcat(x{:}); t.nx = [repmat(U.L.nx,[6 1]); repmat(U.B.nx,[6 1])];
-[~,Tn] = LapSLPmat(t, s); u = Tn * sig;   % central density only
+[~,un] = LapSLP(t, s, sig);          % central density only, many target walls
 amts = [0 0 0 3 3 3 -1 -2 -3 1 2 3; -1 -2 -3 1 2 3 0 0 0 3 3 3];  % wall wgts
-J = J + sum(repmat(u',[2 1]).*kron(amts,w),2);   % weight each wall
+J = J + sum(repmat(un',[2 1]).*kron(amts,w),2);   % weight each wall
 
 function [E A B C Q] = ELSmatrix(s,p,proxyrep,U)
 % builds matrix blocks for extended linear system.
-[~,A] = srcsum(@LapSLPmat, U.trlist, s,s);   % directly summed self-int matrix
+[~,A] = srcsum(@LapSLP, U.trlist,[], s,s);   % directly summed self-int matrix
 N = numel(s.x); A = A - eye(N)/2;            % Neumann exterior jump relation
 [~,B] = proxyrep(s,p);         % Neu data from proxies
-C = Cblock(s,U,@LapSLPmat);
+C = Cblock(s,U,@LapSLP);
 [QL QLn] = proxyrep(U.L,p); [QR QRn] = proxyrep(U.R,p);
 [QB QBn] = proxyrep(U.B,p); [QT QTn] = proxyrep(U.T,p);
 Q = [QR-QL; QRn-QLn; QT-QB; QTn-QBn];
@@ -207,21 +200,21 @@ E = [A B; C Q];
 function C = Cblock(s,U,densrep)     % fill C from source curve s to U walls
 % densrep is handle to LapSLPmat/LapDLPmat depending on density type on curve s
 nei = U.nei; N = numel(s.x); m = numel(U.L.x);
-[CL CLn] = srcsum(densrep,nei*U.e1 + (-nei:nei)*U.e2, U.L,s);
-[CR CRn] = srcsum(densrep,-nei*U.e1 + (-nei:nei)*U.e2, U.R,s);
-[CB CBn] = srcsum(densrep,(-nei:nei)*U.e1 + nei*U.e2, U.B,s);
-[CT CTn] = srcsum(densrep,(-nei:nei)*U.e1 - nei*U.e2, U.T,s);
+[CL CLn] = srcsum(densrep,nei*U.e1 + (-nei:nei)*U.e2,[], U.L,s);
+[CR CRn] = srcsum(densrep,-nei*U.e1 + (-nei:nei)*U.e2,[], U.R,s);
+[CB CBn] = srcsum(densrep,(-nei:nei)*U.e1 + nei*U.e2,[], U.B,s);
+[CT CTn] = srcsum(densrep,(-nei:nei)*U.e1 - nei*U.e2,[], U.T,s);
 C = [CR-CL; CRn-CLn; CT-CB; CTn-CBn];
 
 function u = knownsol(U,z,src)
-% z = targets. U = unit cell struct, src = charge loc.  output potential only
+% z = targets. U = unit cell struct, src = 1-pt struct.  outputs potential only
 % Note use of dipole (monopole would work, but dipole closer to application)
-u = srcsum(@LapDLPmat, U.trlist, struct('x',z), src);  % pot due to DLP
+u = srcsum(@LapDLP, U.trlist, [], struct('x',z), src);  % pot due to DLP
 
 function rhs = knownrhs(src,s,U)
-% src is a dipole source with x, w, nx; it will be summed over 3x3, unit mag.
+% src is a 1-pt struct with x, w, nx; it will be summed over 3x3, unit mag.
 % s is usual target curve (needs normals).
 % The rhs will always be consistent, with f and g nonconstant. Matches knownsol.
-[~,f] = srcsum(@LapDLPmat,U.trlist,s,src);    % direct Neu data sum to curve
-g = Cblock(src,U,@LapDLPmat);
+[~,f] = srcsum(@LapDLP,U.trlist,[],s,src);    % direct Neu data sum to curve
+g = Cblock(src,U,@LapDLP);
 rhs = [f;g];
