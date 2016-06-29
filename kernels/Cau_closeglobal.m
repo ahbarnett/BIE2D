@@ -122,12 +122,12 @@ if isfield(o,'delta')
 end
 
 M = numel(x); Nc = size(vb,2);   % # targets, input col vecs
-cw = s.cw;                       % complex speed weights
+cw = s.cw;                       % complex speed weights, col vec
 
 if Nc==1  % ----------------------------  original single-vector version -----
   % Do bary interp for value outputs. note sum along 1-axis faster than 2-axis
-  comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
-  I0 = sum(repmat(vb(:),[1 M]).*comp); J0 = sum(comp);  % Ioakimidis notation
+  comp = repmat(cw, [1 M]) ./ (repmat(s.x,[1 M]) - repmat(x.',[N 1]));
+  I0 = sum(repmat(vb,[1 M]).*comp); J0 = sum(comp);  % Ioakimidis notation
   if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
   vc = (I0./J0).';                                      % bary form (col vec)
   [jj ii] = ind2sub(size(comp),find(~isfinite(comp)));  % node-targ coincidences
@@ -172,16 +172,14 @@ else    % ------------------------------ multi-vector version ---------------
     if side=='i'
       for j=1:N
         notj = [1:j-1, j+1:N];  % std Schneider-Werner form for deriv @ node...
-        % Note repmat reverted to outer prod w/ ones, faster (Wu/Marple)
-        vbp(j,:) = -sum((cw(notj)*ones(1,Nc)).*((ones(N-1,1)*vb(j,:))-vb(notj,:)).*((1./(s.x(j)-s.x(notj)))*ones(1,Nc)))/cw(j);  % vectorized sorry, dear reader
+        % Note repmat or ones (Wu/Marple) changed to bsxfun, faster:
+        vbp(j,:) = -sum(bsxfun(@times, bsxfun(@times,cw(notj),bsxfun(@minus,vb(j,:),vb(notj,:))), 1./(s.x(j)-s.x(notj))),1)/cw(j); % fast but unreadable
       end
     else
       for j=1:N
         notj = [1:j-1, j+1:N];  % ext version of S-W form derived 6/12/16...
-        % Note repmat reverted to outer prod w/ ones, faster (Wu/Marple)
-        vbp(j,:) = (-sum((cw(notj)*ones(1,Nc)).*((ones(N-1,1)*vb(j,:))-vb(notj,:)).*((1./(s.x(j)-s.x(notj)))*ones(1,Nc))) -2i*pi*vb(j,:) )/cw(j);  % vectorized sorry, dear reader
-        % shows 2.5 digits of cancellation, bad:
-        %abs(vbp(j) / (2i*pi*vb(j)/cw(j)))   % (Nc=1 case)
+        % Note repmat or ones (Wu/Marple) changed to bsxfun, faster:
+        vbp(j,:) = (-sum(bsxfun(@times, bsxfun(@times,cw(notj),bsxfun(@minus,vb(j,:),vb(notj,:))), 1./(s.x(j)-s.x(notj))),1) -2i*pi*vb(j,:) )/cw(j); % fast but unreadable
       end
     end
     % now again do bary interp of v' using its value vbp at nodes...

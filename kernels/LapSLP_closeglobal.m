@@ -67,7 +67,7 @@ if side=='e'
   totchgp = sum((s.w*ones(1,n)).*tau,1)/(2*pi);       % total charge due to SLP, over 2pi (suffix p is for n-cmpt row vec)
   vb = vb + sawlog*totchgp;           % is now r
   cw = 1i*s.nx.*s.w;  % complex speed weights for native quadr...
-  vinf = sum(1./((s.x-s.a)*ones(1,n)).*vb.*(cw*ones(1,n)),1) / (2i*pi); % interior Cauchy gets v_infty
+  vinf = sum(bsxfun(@times, vb, cw./(s.x-s.a)),1) / (2i*pi); % interior Cauchy gets v_infty
   vb = vb - ones(size(vb,1),1)*vinf;  % kill off v_infty so that v is in exterior Hardy space
 end
 info.vb = vb;  % save for diagnostics (if totchg=0 it's useful)
@@ -139,12 +139,12 @@ for side = 'ie'
   [u un] = LapSLP(t,s,tau);    % eval given density cases...
   [uc unc] = LapSLP_closeglobal(t,s,tau,side);
   [uc uxc uyc] = LapSLP_closeglobal(t,s,tau,side);
-  fprintf('density case, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  fprintf('Lap SLP density case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u-uc)), max(abs(un-unc)), max(abs(un - (uxc.*real(t.nx)+uyc.*imag(t.nx))))])
   [u un] = LapSLP(t,s);   % matrix cases....
   [uc unc] = LapSLP_closeglobal(t,s,[],side);
   [uc uxc uyc] = LapSLP_closeglobal(t,s,[],side);
-  fprintf('matrix fill case, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  fprintf('matrix fill case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
 end
 

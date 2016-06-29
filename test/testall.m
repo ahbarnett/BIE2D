@@ -9,13 +9,17 @@ setupquad
 showsegment
 wobblycurve
 
-% kernels: native quadr
-LapintDirBVP
+% kernels: basics
 testStokernels
-StointDirBVP
 
 % kernels: close eval
 Cau_closeglobal
 fig_Cau_closeglobal
 LapSLP_closeglobal
 LapDLP_closeglobal
+StoSLP_closeglobal
+
+% solvers: native quadr and close eval
+LapintDirBVP
+StointDirBVP
+

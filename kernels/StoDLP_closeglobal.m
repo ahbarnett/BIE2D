@@ -1,4 +1,4 @@
-function u = StoDLP_closeglobal(t, s, mu, sigma, side)
+function [u p] = StoDLP_closeglobal(t, s, mu, sigma, side)
 % STODLP_CLOSEGLOBAL - close-eval velocity Stokes DLP w/ global quadr curve
 %
 % u = StoDLP_closeglobal(t,s,mu,dens,side) returns velocities at targets t.x
@@ -8,6 +8,8 @@ function u = StoDLP_closeglobal(t, s, mu, sigma, side)
 %  The DLP is broken down into 5 Laplace DLP-like (2 are Cauchy) potential
 %  calls, each of which are evaluated with the globally-compensated scheme.
 %  See [lsc2d] for details.
+%
+% [u p] = StoDLP_closeglobal(t,s,mu,dens,side) also returns pressure at targets
 %
 % Inputs:
 %  t = target struct with t.x = M-by-1 list of targets in complex plane
@@ -24,11 +26,12 @@ function u = StoDLP_closeglobal(t, s, mu, sigma, side)
 % Outputs:
 %  u = velocity values at targets (2M-by-1): all 1- then all 2-cmpts.
 %      Or, if 2M-by-2N velocity evaluation matrix (if dens=[])
-
-% Also see: SETUPQUAD, STOINTDIRBVP, testStokesSDevalclose.m
+%  p = pressure values at targets (M-by-1), or M-by-2N evaluation matrix.
 %
+% Also see: SETUPQUAD, STOINTDIRBVP
+
 % Bowei Wu, Sept 2014; Barnett 10/8/14 tweaks, repackage 6/13/16.
-% viscosity input, doesn't affect result. 6/27/16
+% viscosity input (doesn't affect result) 6/27/16
 % todo: * speed up matrix filling exploiting incoming 0s, do mult of Nf*Nf
 %  efficiently-filled LapDLP_closeglobal, against the Nf*N dense interp mat,
 %  will be O(MN^2) but fast.
@@ -55,7 +58,7 @@ tauf = sigf./(sf.nx*ones(1,Nc)).*(real(sf.nx)*ones(1,Nc));
 I1x1 = LapDLP_closeglobal(t, sf, tauf, side);
 tauf = sigf./(sf.nx*ones(1,Nc)).*(imag(sf.nx)*ones(1,Nc));
 I1x2 = LapDLP_closeglobal(t, sf, tauf, side);
-% Note: the above would be faster done by mat-mat prod of 
+% Note: for mat fill the above would be faster done by mat-mat prod
 I1 = I1x1+1i*I1x2;
 
 
@@ -90,3 +93,14 @@ u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 % test which is causing slow convergence at nearby pt (side='e', vary N):
 % jj= find(abs(x - (0.7-0.9i))<1e-12); I1(jj), I2(jj), I3(jj)+I4(jj)
 % ans: it's I1, of course. (Alex, 2013)
+
+if nargout>1   % want pressure, do its extension
+    % *** need to resample to fine ???
+  p = [];  % *** todo
+  %tau = bsxfun(@times, sigma, conj(s.nx));   % 2 complex cmpts
+  %p = LapDLP_closeglobal(t, s, tau, side);
+  
+  
+  
+  p = real(p);
+end

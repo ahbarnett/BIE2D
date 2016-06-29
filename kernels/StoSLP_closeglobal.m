@@ -1,4 +1,4 @@
-function u = StoSLP_closeglobal(t, s, mu, sigma, side)
+function [u p] = StoSLP_closeglobal(t, s, mu, sigma, side)
 % STOSLP_CLOSEGLOBAL - close-eval velocity Stokes SLP w/ global quadr curve
 %
 % u = StoSLP_closeglobal(t,s,mu,dens,side) returns velocities at targets t.x
@@ -8,6 +8,8 @@ function u = StoSLP_closeglobal(t, s, mu, sigma, side)
 %  The SLP is broken down into 3 Laplace SLP potential calls,
 %  each of which are evaluated with the globally-compensated scheme.
 %  See [lsc2d] for details (except we include viscosity prefactor).
+%
+% [u p] = StoSLP_closeglobal(t,s,mu,dens,side) also returns pressure at targets
 %
 % Inputs:
 %  t = target struct with t.x = M-by-1 list of targets in complex plane
@@ -23,15 +25,19 @@ function u = StoSLP_closeglobal(t, s, mu, sigma, side)
 % Outputs:
 %  u = velocity values at targets (2M-by-1): all 1- then all 2-cmpts.
 %      Or, if 2M-by-2N velocity evaluation matrix (if dens=[])
+%  p = pressure values at targets (M-by-1), or M-by-2N evaluation matrix.
 %
-% Also see: SETUPQUAD, STOINTDIRBVP, testStokesSDevalclose.m
+% Also see: SETUPQUAD, STOINTDIRBVP
 
 % Bowei Wu, Sept 2014; Barnett 10/8/14 tweaks, repackage 6/13/16, 6/27/16
+% viscosity scaling & debug 6/28/16.
 % todo: * speed up matrix filling exploiting incoming 0s & dgemm on Lap mats
+
+if nargin==0, test_StoSLP_closeglobal; return; end
 
 N=size(s.x,1); M=size(t.x,1);       % # srcs, # targs
 mat = isempty(sigma);
-if mat, sigma=eye(2*N); end         % case of dense matrix
+if mat, sigma=eye(2*N); end         % case of dense matrix fill, slow
 sigma = sigma(1:N,:)+1i*sigma(N+1:end,:); % work in complex notation
 Nc = size(sigma,2);                 % # density vecs (cols), either 1 or 2N
 
@@ -67,3 +73,36 @@ I4 = bsxfun(@times, imag(t.x)/2, I4x1+1i*I4x2);
 u = (1/mu)*(I1+I2-I3-I4);
 
 u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
+
+if nargout>1    % want pressure, do its extension by rotating n_y to sigma
+  % *** need to resample to fine ???
+  tau = bsxfun(@times, sigma, conj(s.nx));   % 2 complex cmpts
+  p = LapDLP_closeglobal(t, s, tau, side);
+  p = real(p);
+end
+
+
+%%%%%%%%%%%%%%%%%%%%
+function test_StoSLP_closeglobal  % check far-field matches the native rule
+% adapted from Lap tests
+verb = 0;       % to visualize
+s = wobblycurve(0.3,5,200); s.a = mean(s.x); if verb, figure;showsegment(s); end
+mu = 0.9;       % viscosity (real, pos)
+tau = [0.7+sin(3*s.t); -0.4+cos(2*s.t)];  % pick smooth density w/ nonzero mean
+nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
+%profile clear; profile on;
+for side = 'ie'
+  if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
+  else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
+  if verb, plot(t.x,'.'); end
+  [u p] = StoSLP(t,s,mu,tau);    % eval given density cases...
+  [uc pc] = StoSLP_closeglobal(t,s,mu,tau,side);
+  fprintf('Sto SLP density case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  disp([max(abs(u-uc)), max(abs(p-pc))])
+  [A P] = StoSLP(t,s,mu);   % matrix cases...
+  tic, [Ac Pc] = StoSLP_closeglobal(t,s,mu,[],side); toc       % slow for now
+  fprintf('matrix fill case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  disp([max(abs(A(:)-Ac(:))), max(abs(P(:)-Pc(:)))])
+end
+%profile off; profile viewer
+

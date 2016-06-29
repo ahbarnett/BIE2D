@@ -50,8 +50,8 @@ function [u ux uy info] = LapDLP_closeglobal(t, s, tau, side)
 % complexity O(N^2) for evaluation of v^+ or v^-, plus O(NM) for globally
 % compensated quadrature to targets
 
-% Barnett 2013; multiple-column generalization by Gary Marple, 2014.
-% Repackaged Barnett 6/12/16, 6/27/16 col vec outputs
+% Barnett 2013; multiple-column Gary Marple, 2014.
+% Repackaged Barnett 6/12/16, 6/27/16 col vec outputs. 6/29/16 bsxfun faster
 
 if nargin==0, test_LapDLP_closeglobal; return; end
 N = numel(s.x); M = numel(t.x);      % # source, target nodes
@@ -67,10 +67,10 @@ for k=1:n
     taup(:,k) = perispecdiff(tau(:,k));  % numerical deriv of each dens
 end
 for i=1:N, j = [1:i-1, i+1:N];      % skip pt i. Eqn (4.2) in [lsc2d]
-  vb(i,:) = sum((tau(j,:)-ones(N-1,1)*tau(i,:))./((s.x(j)-s.x(i))*ones(1,n)).*(s.cw(j)*ones(1,n)),1) + taup(i,:)*s.w(i)/s.sp(i);   % vectorized over cols
+  vb(i,:) = sum(bsxfun(@times,bsxfun(@minus,tau(j,:),tau(i,:)),s.cw(j)./(s.x(j)-s.x(i))),1) + taup(i,:)*s.w(i)/s.sp(i);   % vectorized over cols (ahb)
 end
 vb = vb*(1/(-2i*pi));               % prefactor
-if side=='i', vb = vb - tau; end   % JR's add for v^-, cancel for v^+ (Eqn 4.3)
+if side=='i', vb = vb - tau; end    % JR's add for v^-, cancel for v^+ (Eqn 4.3)
 info.vb = vb;                       % diagnostics
 
 % Helsing step 2: compensated close-evaluation of v & v', followed by take Re:
@@ -98,12 +98,11 @@ for side = 'ie'
   [u un] = LapDLP(t,s,tau);
   [uc unc] = LapDLP_closeglobal(t,s,tau,side);
   [uc uxc uyc] = LapDLP_closeglobal(t,s,tau,side);
-  fprintf('density case, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  fprintf('Lap DLP density case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u-uc)), max(abs(un-unc)), max(abs(un - (uxc.*real(t.nx)+uyc.*imag(t.nx))))])
   [u un] = LapDLP(t,s);   % matrix cases....
   [uc unc] = LapDLP_closeglobal(t,s,[],side);
   [uc uxc uyc] = LapDLP_closeglobal(t,s,[],side);
-  fprintf('matrix fill case, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  fprintf('matrix fill case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
 end
-

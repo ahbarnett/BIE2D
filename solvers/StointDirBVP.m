@@ -37,7 +37,7 @@ fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 % plot solution on grid & soln errors...
 nx = 100; gx = max(abs(s.x))*linspace(-1,1,nx);
 [xx yy] = meshgrid(gx); g.x = xx(:)+1i*yy(:);
-tic, [ug pg] = StoDLP(g,s,mu,tau); toc    % u, p on grid, expensive bit for now
+tic, ug = StoDLP(g,s,mu,tau); toc    % u, p on grid, expensive bit for now
 ueg = ue(g.x);                       % known u soln on grid
 ug = reshape(ug,[nx nx 2]); ueg = reshape(ueg,[nx nx 2]);
 figure; set(gcf,'name', 'Sto DLP native u eval');
