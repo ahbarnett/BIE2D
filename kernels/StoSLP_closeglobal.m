@@ -5,9 +5,11 @@ function [u p] = StoSLP_closeglobal(t, s, mu, sigma, side)
 %  due to single-layer potential with real-valued density dens sampled on the
 %  nodes s.x of a smooth global quadrature rule on the curve s, either inside
 %  or outside the curve.
-%  The SLP is broken down into 3 Laplace SLP potential calls,
+%  The SLP for velocity is broken down into 3 Laplace SLP potential calls,
 %  each of which are evaluated with the globally-compensated scheme.
 %  See [lsc2d] for details (except we include viscosity prefactor).
+%  The pressure uses a single Laplace DLP call, using the complex density
+%  tau = sigma_1 + i.sigma_2.
 %
 % [u p] = StoSLP_closeglobal(t,s,mu,dens,side) also returns pressure at targets
 %
@@ -27,7 +29,9 @@ function [u p] = StoSLP_closeglobal(t, s, mu, sigma, side)
 %      Or, if 2M-by-2N velocity evaluation matrix (if dens=[])
 %  p = pressure values at targets (M-by-1), or M-by-2N evaluation matrix.
 %
-% Also see: SETUPQUAD, STOINTDIRBVP
+% Called without arguments, a self-test (far eval & mat vs StoSLP) is done.
+%
+% Also see: STOSLP, SETUPQUAD, STOINTDIRBVP
 
 % Bowei Wu, Sept 2014; Barnett 10/8/14 tweaks, repackage 6/13/16, 6/27/16
 % viscosity scaling & debug 6/28/16.
@@ -43,10 +47,8 @@ Nc = size(sigma,2);                 % # density vecs (cols), either 1 or 2N
 
 % find I_1
 if ~mat                  % eval from single density col vec
-  tau = real(sigma);
-  [I1x1, I3x1, I3x2] = LapSLP_closeglobal(t, s, tau, side);
-  tau = imag(sigma);
-  [I1x2, I4x1, I4x2] = LapSLP_closeglobal(t, s, tau, side);
+  [I1x1, I3x1, I3x2] = LapSLP_closeglobal(t, s, real(sigma), side);
+  [I1x2, I4x1, I4x2] = LapSLP_closeglobal(t, s, imag(sigma), side);
 else                     % *** specific to the matrix fill case, not arb Nc
   [I1x1, I3x1, I3x2] = LapSLP_closeglobal(t, s, eye(N), side);
   I1x2=[zeros(M,N),I1x1];
@@ -74,10 +76,11 @@ u = (1/mu)*(I1+I2-I3-I4);
 
 u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 
-if nargout>1    % want pressure, do its extension by rotating n_y to sigma
+if nargout>1 % -------- want pressure, do its extension by rotating n_y to sigma
+  % (not in [lsc2d])
   % *** need to resample to fine ???
   tau = bsxfun(@times, sigma, conj(s.nx));   % 2 complex cmpts
-  p = LapDLP_closeglobal(t, s, tau, side);
+  p = LapDLP_closeglobal(t, s, tau, side);   % slow - could speed up, reuse
   p = real(p);
 end
 

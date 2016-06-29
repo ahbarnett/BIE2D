@@ -5,9 +5,10 @@ function [u p] = StoDLP_closeglobal(t, s, mu, sigma, side)
 %  due to double-layer potential with real-valued density dens sampled on the
 %  nodes s.x of a smooth global quadrature rule on the curve s, either inside
 %  or outside the curve.
-%  The DLP is broken down into 5 Laplace DLP-like (2 are Cauchy) potential
-%  calls, each of which are evaluated with the globally-compensated scheme.
-%  See [lsc2d] for details.
+%  The DLP velocity is broken down into 5 Laplace DLP-like (2 are Cauchy)
+%  potential calls, each of which are evaluated with the globally-compensated
+%  scheme. See [lsc2d] for details.
+%  The pressure uses the gradient of a single Laplace DLP call.
 %
 % [u p] = StoDLP_closeglobal(t,s,mu,dens,side) also returns pressure at targets
 %
@@ -28,7 +29,9 @@ function [u p] = StoDLP_closeglobal(t, s, mu, sigma, side)
 %      Or, if 2M-by-2N velocity evaluation matrix (if dens=[])
 %  p = pressure values at targets (M-by-1), or M-by-2N evaluation matrix.
 %
-% Also see: SETUPQUAD, STOINTDIRBVP
+% Called without arguments, a self-test (far eval & mat vs StoDLP) is done.
+%
+% Also see: STODLP, SETUPQUAD, STOINTDIRBVP
 
 % Bowei Wu, Sept 2014; Barnett 10/8/14 tweaks, repackage 6/13/16.
 % viscosity input (doesn't affect result) 6/27/16
@@ -36,12 +39,12 @@ function [u p] = StoDLP_closeglobal(t, s, mu, sigma, side)
 %  efficiently-filled LapDLP_closeglobal, against the Nf*N dense interp mat,
 %  will be O(MN^2) but fast.
 
-N=size(s.x,1); M=size(t.x,1);       % # srcs, # targs
+if nargin==0, test_StoDLP_closeglobal; return; end
 
+N=size(s.x,1); M=size(t.x,1);       % # srcs, # targs
 mat = isempty(sigma);
 if mat, sigma=eye(2*N); end         % case of dense matrix
 sigma = sigma(1:N,:)+1i*sigma(N+1:end,:);  % put into complex notation
-
 Nc = size(sigma,2);                 % # density vecs (cols)
 
 % find I_1:
@@ -61,29 +64,24 @@ I1x2 = LapDLP_closeglobal(t, sf, tauf, side);
 % Note: for mat fill the above would be faster done by mat-mat prod
 I1 = I1x1+1i*I1x2;
 
-
 % find I_2
-tau = real((s.x*ones(1,Nc)).*conj(sigma));
+tau = real(bsxfun(@times,s.x,conj(sigma)));
 [~, I2x1, I2x2] = LapDLP_closeglobal(t, s, tau, side);
 I2 = I2x1+1i*I2x2;
 
 if ~mat
-    tau = real(sigma);
-    [~, I3x1, I3x2] = LapDLP_closeglobal(t, s, tau, side);
-    I3 = (real(t.x)*ones(1,Nc)).*(I3x1+1i*I3x2);
-    
-    tau = imag(sigma);
-    [~, I4x1, I4x2] = LapDLP_closeglobal(t, s, tau, side);
-    I4 = (imag(t.x)*ones(1,Nc)).*(I4x1+1i*I4x2);
-else
-    tau = real(sigma(:,1:N));      % *** specific to the matrix case, not arb Nc
-    [~, I3x1, I3x2] = LapDLP_closeglobal(t, s, tau, side);
-    I4x1=[zeros(M,N),I3x1];
-    I4x2=[zeros(M,N),I3x2];
-    I3x1=[I3x1,zeros(M,N)];
-    I3x2=[I3x2,zeros(M,N)];
-    I3 = (real(t.x)*ones(1,Nc)).*(I3x1+1i*I3x2);
-    I4 = (imag(t.x)*ones(1,Nc)).*(I4x1+1i*I4x2);
+    [~, I3x1, I3x2] = LapDLP_closeglobal(t, s, real(sigma), side);
+    I3 = bsxfun(@times, real(t.x), I3x1+1i*I3x2);
+    [~, I4x1, I4x2] = LapDLP_closeglobal(t, s, imag(sigma), side);
+    I4 = bsxfun(@times, imag(t.x), I4x1+1i*I4x2);
+else        % *** specific to the matrix case, not arb Nc...
+    [~, L1, L2] = LapDLP_closeglobal(t, s, eye(N), side);  % only need 1 call
+    I4x1=[zeros(M,N),L1];      % could be tidied up, but not a bottleneck...
+    I4x2=[zeros(M,N),L2];
+    I3x1=[L1,zeros(M,N)];
+    I3x2=[L2,zeros(M,N)];
+    I3 = bsxfun(@times,real(t.x),I3x1+1i*I3x2);
+    I4 = bsxfun(@times,imag(t.x),I4x1+1i*I4x2);
 end
 
 u = I1+I2-I3-I4;
@@ -94,13 +92,35 @@ u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 % jj= find(abs(x - (0.7-0.9i))<1e-12); I1(jj), I2(jj), I3(jj)+I4(jj)
 % ans: it's I1, of course. (Alex, 2013)
 
-if nargout>1   % want pressure, do its extension
+if nargout>1  % ----------- want pressure, do its extension (not in [lsc2c])
     % *** need to resample to fine ???
-  p = [];  % *** todo
-  %tau = bsxfun(@times, sigma, conj(s.nx));   % 2 complex cmpts
-  %p = LapDLP_closeglobal(t, s, tau, side);
-  
-  
-  
-  p = real(p);
+  if ~mat
+    p = -2*mu*(I3x1 + I4x2);   % already computed for u
+  else
+    p = -2*mu*[L1,L2];         % "
+  end
 end
+
+%%%%%%%%%%%%%%%%%%%%
+function test_StoDLP_closeglobal  % check far-field matches the native rule
+% adapted from Lap tests; same as DLP
+verb = 0;       % to visualize
+s = wobblycurve(0.3,5,200); s.a = mean(s.x); if verb, figure;showsegment(s); end
+mu = 0.9;       % viscosity (real, pos)
+tau = [0.7+sin(3*s.t); -0.4+cos(2*s.t)];  % pick smooth density w/ nonzero mean
+nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
+%profile clear; profile on;
+for side = 'ie'
+  if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
+  else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
+  if verb, plot(t.x,'.'); end
+  [u p] = StoDLP(t,s,mu,tau);    % eval given density cases...
+  [uc pc] = StoDLP_closeglobal(t,s,mu,tau,side);
+  fprintf('Sto SLP density case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  disp([max(abs(u-uc)), max(abs(p-pc))])
+  [A P] = StoDLP(t,s,mu);   % matrix cases...
+  tic, [Ac Pc] = StoDLP_closeglobal(t,s,mu,[],side); toc       % slow for now
+  fprintf('matrix fill case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  disp([max(abs(A(:)-Ac(:))), max(abs(P(:)-Pc(:)))])
+end
+%profile off; profile viewer
