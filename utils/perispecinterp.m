@@ -7,10 +7,10 @@ function g = perispecinterp(f,N)
 % outputs: g - vector length N of interpolant, (row or col as f was)
 %
 % Note on phasing: the output and input grid first entry align (ie, as if they
-%  are both 0-indexed).
+%  are both 0-indexed; note this matches setupquad)
 
 % Barnett 6/27/16 renaming fftinterp from 9/5/14
-% todo: * downsample case N<n. * odd cases.
+% todo: * downsample case N<n.  * odd cases.
 
 if nargin==0, test_perispecinterp; return; end
 n = numel(f);

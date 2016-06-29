@@ -1,6 +1,8 @@
 % Basic solver for Stokes interior velocity (Dirichlet) BVP on smooth curve.
-% Also serves to test the native SLP and DLP matrix and eval routines.
+% Also serves to test the native and clseo-global SLP and DLP matrix and eval
+% routines for u (velocity) and p (pressure).
 % Barnett 6/13/16, munging LapintDirBVP.m with intvelBVP.m from Feb 2014.
+% Finished 6/29/16.
 %
 % References: see Sec 2.3 of this:
 %  [HW]    "Boundary Integral Equations", G. C. Hsiao and W. L. Wendland
@@ -9,7 +11,7 @@
 clear;
 mu = 0.7;              % viscosity
 a = .3; w = 5;         % smooth wobbly radial shape params
-N = 300; s = wobblycurve(a,w,N);
+N = 400; s = wobblycurve(a,w,N); % # nodes, ~300 for DLP, ~500 for D+S (1e-11)
 
 p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
 %figure; showsegment({s p})
@@ -18,7 +20,8 @@ p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
 ue = @(x) [imag(x).^2;0*x]; pe = @(x) 2*mu*real(x);   % vel, pres
 Te = @(x,n) 2*mu*[-real(x).*real(n)+imag(x).*imag(n); -real(x).*imag(n)+imag(x).*real(n)];   % trac (n=targ nor)
 
-% double-layer representation...
+
+% --------- double-layer representation...
 A = -eye(2*N)/2 + StoDLP(s,s,mu);       % Nystrom discretized integral operator
 %S = svd(A); fprintf('last few singular values of D-1/2:\n'); S(end-4:end)
 A(:,1) = A(:,1) + [real(s.nx);imag(s.nx)];   % rank-1 perturbation kills nul A
@@ -40,7 +43,7 @@ nx = 100; gx = max(abs(s.x))*linspace(-1,1,nx);
 tic, [ug pg] = StoDLP(g,s,mu,tau); toc    % u, p on grid, expensive bit for now
 ueg = ue(g.x); peg = pe(g.x);             % known soln on grid
 ug = reshape(ug,[nx nx 2]); ueg = reshape(ueg,[nx nx 2]);
-pg = reshape(pg,[nx nx]); peg = reshape(peg,[nx nx]) + poff;   % fix p offset
+pg = reshape(pg,[nx nx]) - poff; peg = reshape(peg,[nx nx]);   % fix p offset
 figure; set(gcf,'name', 'Sto DLP native u,p eval');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
 tsubplot(2,2,1); imagesc(gx,gx,spg); showsegment(s);
@@ -55,19 +58,27 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error p');
 % basic BVP done
 
 % instead use close-evaluation scheme...
-ii = s.inside(g.x); g.x = g.x(ii); ug = nan(2*nx^2,1);  % eval only at int pts
-tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i'); toc  % ii's for 2 cmpts
-fprintf('max grid DLP vel cmpt close eval err: %.g\n',max(abs(ug(:)-ueg(:))))
-ug = reshape(ug,[nx nx 2]);
-figure; set(gcf,'name', 'Sto DLP close u eval');
+ii = s.inside(g.x); g.x = g.x(ii);    % eval only at int pts, indices ii
+ug = nan(2*nx^2,1); pg = nan(nx^2,1);
+tic, [ug([ii;ii]) pg(ii)] = StoDLP_closeglobal(g,s,mu,tau,'i'); toc
+ug = reshape(ug,[nx nx 2]); pg = reshape(pg,[nx nx]) - poff;   % fix p offset
+fprintf('max grid DLP vel cmpt & pres close eval errs:\t%.3g\t%.3g\n',...
+        max(abs(ug(:)-ueg(:))), max(abs(pg(:)-peg(:))))
+figure; set(gcf,'name', 'Sto DLP close u,p eval');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
-tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
+tsubplot(2,2,1); imagesc(gx,gx,spg); showsegment(s);
 caxis([0 1.5]); colorbar; axis tight; title('u');
 uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
-tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
+tsubplot(2,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
+tsubplot(2,2,3); imagesc(gx,gx,pg); showsegment(s);
+caxis([-2 2]); colorbar; axis tight; title('p');
+tsubplot(2,2,4); imagesc(gx,gx,log10(abs(pg-peg))); showsegment(s);
+caxis('auto'); colorbar; axis tight; title('log_{10} error p');
 
-% mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
+
+% ------------- mixed double plus single rep...
+% (not helpful---cond(A) worse---but it tests SLP)
 A = A + StoSLP(s,s,mu);   % make it the D+S rep (tests S self)
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
@@ -80,13 +91,21 @@ Tp = Tp - poff*[-real(p.nx);-imag(p.nx)];      % fix traction's pres offset
 fprintf('\tnative traction err @ test pts: \t%.3g\n',max(abs(Tp-Te(p.x,p.nx))))
 
 % again use close-evaluation scheme on same interior pts to test S close...
-tic, ug([ii;ii]) = StoDLP_closeglobal(g,s,mu,tau,'i') + StoSLP_closeglobal(g,s,mu,tau,'i'); toc  % ii's for 2 cmpts
-fprintf('max grid D+S vel cmpt close eval err: %.g\n',max(abs(ug(:)-ueg(:))))
-ug = reshape(ug,[nx nx 2]);
+tic, [uD pD] = StoDLP_closeglobal(g,s,mu,tau,'i');
+[uS pS] = StoSLP_closeglobal(g,s,mu,tau,'i'); toc
+ug([ii;ii]) = uD+uS; pg(ii) = pD+pS;     % D+S rep for soln u,p
+ug = reshape(ug,[nx nx 2]); pg = reshape(pg,[nx nx]) - poff;   % fix p offset
+fprintf('max grid D+S vel cmpt & pres close eval errs:\t%.3g\t%.3g\n',...
+        max(abs(ug(:)-ueg(:))), max(abs(pg(:)-peg(:))))
 figure; set(gcf,'name', 'Sto D+S close u eval');
 spg = abs(ug(:,:,1)+1i*ug(:,:,2));   % flow speed on grid
-tsubplot(1,2,1); imagesc(gx,gx,spg); showsegment(s);
+tsubplot(2,2,1); imagesc(gx,gx,spg); showsegment(s);
 caxis([0 1.5]); colorbar; axis tight; title('u');
 uerrg = abs(ug(:,:,1)+1i*ug(:,:,2)-ueg(:,:,1)-1i*ueg(:,:,2));
-tsubplot(1,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
+tsubplot(2,2,2); imagesc(gx,gx,log10(uerrg)); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
+tsubplot(2,2,3); imagesc(gx,gx,pg); showsegment(s);
+caxis([-2 2]); colorbar; axis tight; title('p');
+tsubplot(2,2,4); imagesc(gx,gx,log10(abs(pg-peg))); showsegment(s);
+caxis('auto'); colorbar; axis tight; title('log_{10} error p');
+% done

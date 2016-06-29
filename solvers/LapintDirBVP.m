@@ -18,7 +18,8 @@ fpholom = @(z) 1i*exp(1i*(z+1));    % its complex derivative
 f = @(z) real(fholom(z));           % use real part as known Laplace soln
 fx = @(z) real(fpholom(z)); fy = @(z) -imag(fpholom(z)); % partials, note sign!
 
-% double-layer representation...
+
+% ------- double-layer representation...
 A = -eye(N)/2 + LapDLP(s,s);       % Nystrom discretized integral operator
 rhs = f(s.x);
 tau = A \ rhs;
@@ -43,14 +44,16 @@ caxis([-16 0]); colorbar; axis tight; title('log_{10} error u');
 % instead use close-evaluation scheme...
 ii = s.inside(g.x); g.x = g.x(ii); ug = nan*ug;  % eval only at interior pts
 tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i'); toc
-fprintf('max grid DLP pot close eval err: %.g\n',max(abs(ug(:)-fg(:))))
+fprintf('max grid DLP pot close eval err:\t%.3g\n',max(abs(ug(:)-fg(:))))
 figure; set(gcf,'name', 'Lap DLP close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
 
-% Mixed double plus single rep... (not helpful---cond(A) worse---but tests SLP)
+
+% --------- Mixed double plus single rep...
+% (not helpful---cond(A) worse---but it tests SLP)
 A = A + LapSLP(s,s);   % make it the D+S rep
 tau = A \ rhs;
 fprintf('resid norm %.3g,  density norm %.3g\n',norm(rhs-A*tau),norm(tau))
@@ -60,10 +63,11 @@ fprintf('D+S rep: native u and un errors @ test pt: \t%.3g\t%.3g \n',up-f(p.x),u
 
 % again use close-evaluation scheme on same interior pts only, now D+S...
 tic; ug(ii) = LapDLP_closeglobal(g,s,tau,'i') + LapSLP_closeglobal(g,s,tau,'i'); toc
-fprintf('max grid D+S pot close eval err: %.g\n',max(abs(ug(:)-fg(:))))
+fprintf('max grid D+S pot close eval err:\t%.3g\n',max(abs(ug(:)-fg(:))))
 figure; set(gcf,'name', 'Lap D+S close eval');
 tsubplot(1,2,1); imagesc(gx,gx,ug); showsegment(s);
 caxis([-1 2]); colorbar; axis tight; title('u');
 tsubplot(1,2,2); imagesc(gx,gx,log10(abs(ug-fg))); showsegment(s);
 caxis('auto'); colorbar; axis tight; title('log_{10} error u');
+% done
 

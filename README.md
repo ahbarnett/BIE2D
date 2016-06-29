@@ -46,16 +46,18 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 
 ### Action items
 
-* StoDLP_cg self-test & pressure close
-* exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
-* Green's representation theorem kernel tests for Lap, then Sto (ugh)
+* bring over doublyperiodic
+* [decide priority] exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
+* Green's representation theorem kernel tests for Lap, then Sto (ugh), so don't rely on BIE density soln for basic kernel tests
 * more BVP solver demos (eg bring over testStokesSDevalclose.m w/ all 4 BVPs)
 * FMM MEX interfaces
+* [long term] basic fast direct solver examples
 * kd-tree for close-evaluation lists (Marple)
 * [low-priority] Alpert and other options for log-singular kernels
 * Helmholtz bring in from MPSpack
 * panels (Helsing-style), corners with panels, bring in from various tests
 * [long term] MEX interface to Rachh QBX/FMM ?
+* [low-priority] bring in singlyperiodic, get Adrianna codes
 
 ### Done
 
@@ -64,4 +66,5 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * many repmats/ones -> bsxfun for speed in kernels
 * derivs for 'e' LapSLP_closeglobal corrected for nonzero totchg.
 * Stokes mat fills bsxfun, StoSLP, StoSLP_closeglobal debug via vel BVP for now
-* Stokes SLP pressure closeglobal eval
+* Stokes SLP pressure closeglobal eval, upsampling
+* StoDLP_cg self-test & pressure close, StointvelBVP all pres plots added

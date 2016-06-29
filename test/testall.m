@@ -18,6 +18,7 @@ fig_Cau_closeglobal
 LapSLP_closeglobal
 LapDLP_closeglobal
 StoSLP_closeglobal
+StoDLP_closeglobal
 
 % solvers: native quadr and close eval
 LapintDirBVP

@@ -34,7 +34,7 @@ function [u p] = StoDLP_closeglobal(t, s, mu, sigma, side)
 % Also see: STODLP, SETUPQUAD, STOINTDIRBVP
 
 % Bowei Wu, Sept 2014; Barnett 10/8/14 tweaks, repackage 6/13/16.
-% viscosity input (doesn't affect result) 6/27/16
+% viscosity input (doesn't affect result) 6/27/16. pressure 6/29/16.
 % todo: * speed up matrix filling exploiting incoming 0s, do mult of Nf*Nf
 %  efficiently-filled LapDLP_closeglobal, against the Nf*N dense interp mat,
 %  will be O(MN^2) but fast.
@@ -57,9 +57,9 @@ for k=1:Nc
   sigf(:,k) = perispecinterp(sigma(:,k),Nf);     % fine Stokes density
 end
 % feed complex tau to Laplace close eval - careful:
-tauf = sigf./(sf.nx*ones(1,Nc)).*(real(sf.nx)*ones(1,Nc));
+tauf = bsxfun(@times, sigf, real(sf.nx)./sf.nx);    % undo n_y rotation
 I1x1 = LapDLP_closeglobal(t, sf, tauf, side);
-tauf = sigf./(sf.nx*ones(1,Nc)).*(imag(sf.nx)*ones(1,Nc));
+tauf = bsxfun(@times, sigf, imag(sf.nx)./sf.nx);    % undo n_y rotation
 I1x2 = LapDLP_closeglobal(t, sf, tauf, side);
 % Note: for mat fill the above would be faster done by mat-mat prod
 I1 = I1x1+1i*I1x2;
@@ -69,6 +69,7 @@ tau = real(bsxfun(@times,s.x,conj(sigma)));
 [~, I2x1, I2x2] = LapDLP_closeglobal(t, s, tau, side);
 I2 = I2x1+1i*I2x2;
 
+% find I_3 and I_4
 if ~mat
     [~, I3x1, I3x2] = LapDLP_closeglobal(t, s, real(sigma), side);
     I3 = bsxfun(@times, real(t.x), I3x1+1i*I3x2);
@@ -85,7 +86,6 @@ else        % *** specific to the matrix case, not arb Nc...
 end
 
 u = I1+I2-I3-I4;
-
 u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 
 % test which is causing slow convergence at nearby pt (side='e', vary N):
@@ -93,9 +93,8 @@ u=[real(u);imag(u)];    % back to real notation, always stack [u1;u2]
 % ans: it's I1, of course. (Alex, 2013)
 
 if nargout>1  % ----------- want pressure, do its extension (not in [lsc2c])
-    % *** need to resample to fine ???
   if ~mat
-    p = -2*mu*(I3x1 + I4x2);   % already computed for u
+    p = -2*mu*(I3x1 + I4x2);   % already computed for u, turns out easy
   else
     p = -2*mu*[L1,L2];         % "
   end
