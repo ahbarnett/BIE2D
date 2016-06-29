@@ -126,7 +126,7 @@ cw = s.cw;                       % complex speed weights, col vec
 
 if Nc==1  % ----------------------------  original single-vector version -----
   % Do bary interp for value outputs. note sum along 1-axis faster than 2-axis
-  comp = repmat(cw, [1 M]) ./ (repmat(s.x,[1 M]) - repmat(x.',[N 1]));
+  comp = repmat(cw, [1 M]) ./ (repmat(s.x,[1 M]) - repmat(x(:).',[N 1]));
   I0 = sum(repmat(vb,[1 M]).*comp); J0 = sum(comp);  % Ioakimidis notation
   if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
   vc = (I0./J0).';                                      % bary form (col vec)
@@ -158,7 +158,7 @@ else    % ------------------------------ multi-vector version ---------------
   % Note: this is non-optimal as method for matrix filling, due to incoming 0s.
   % Do bary interp for value outputs:
   % Precompute weights in O(NM)... note sum along 1-axis faster than 2-axis...
-  comp = repmat(cw(:), [1 M]) ./ (repmat(s.x(:),[1 M]) - repmat(x(:).',[N 1]));
+  comp = repmat(cw, [1 M]) ./ (repmat(s.x,[1 M]) - repmat(x(:).',[N 1]));
   % mult input vec version (transp of Wu/Marple): comp size N*N, I0 size N*Nc
   I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
   J0 = sum(comp).';  % size N*1, Ioakimidis notation

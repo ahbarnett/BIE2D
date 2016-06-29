@@ -42,7 +42,7 @@ hold on; plot(z,'w+'); axis xy equal; caxis(maxv*[-1 1]); colorbar; end
 o = []; %o.delta = 1e-2;  % no delta field uses default; 0 makes it non-bary
 Ns = 20:20:200; err = nan(numel(Ns),numel(z)); errp = err; % N multiple of 4
 for i=1:numel(Ns), N=Ns(i); s = setupquad(s,N);
-  d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
+  %d = repmat(s.x(:),[1 M])-repmat(z(:).',[N 1]); % displ mat
   %vc = sum(repmat(v(s.x).*s.cw,[1 M])./d,1)/(2i*pi); % naive Cauchy - so bad!
   [vc vcp] = Cau_closeglobal(z,s,v(s.x),side,o);       % my bary alg
   err(i,:) = vc.' - vz; errp(i,:) = vcp.' - vpz;
