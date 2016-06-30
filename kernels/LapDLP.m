@@ -17,11 +17,12 @@ function [u un] = LapDLP(t,s,dens)
 %  (An).
 %
 % Tested by: LAPINTDIRBVP
-%
-% Crude native quadr and O(NM) RAM for now
+
+% Crude native quadr and O(NM) RAM for now. Obviously C/Fortran would not
+%  form matrices for the density eval case, rather direct sum w/o/ wasting RAM.
 % todo: make O(N+M) & incorporate Gary's scf
 
-% Barnett 6/12/16. Interface change 6/27/16
+% Barnett 6/12/16. Interface change 6/27/16. 
   
 if nargout==1
   u = LapDLPmat(t,s);            % local matrix filler

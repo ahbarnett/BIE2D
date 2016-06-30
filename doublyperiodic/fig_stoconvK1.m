@@ -1,19 +1,23 @@
 function fig_stoconvK1
-% self-contained code for Stokes no-slip periodic, convergence and soln plots
-% Single inclusion (K=1), no close eval.  Adapted from fig_lapconvK1.m,
-% except SLP-type proxies hard-wired, and close eval done.  Barnett 6/7/16
+% make Stokes no-slip periodic convergence and soln plots.
+% Single inclusion (K=1), native quad for matrix fill, close eval for soln.
+% Adapted from fig_lapconvK1.m, except SLP-type proxy choice hard-wired.
+% Barnett 6/7/16. 6/30/16 brought into BIE2D
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
 lso.RECT = true;  % linsolve opts, forces QR even when square
+
 mu = 0.7;   % overall viscosity const for Stokes PDE
-sd = [1 1];  % inclusion representation prefactors for SLP+DLP
+sd = [1 1];  % layer potential representation prefactors for SLP & DLP resp.
 jumps = [1 0]; %[0 1]; % pressure jumps across R-L and T-B (not for known soln)
 
-U.e1 = 1; U.e2 = 1i; U.nei = 1;  % unit cell; nei=1 for 3x3 scheme
-m = 22; [U L R B T] = walls(U,m);
+U.e1 = 1; U.e2 = 1i;     % unit cell; nei=1 for 3x3 scheme
+U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:);
+m = 22; [U L R B T] = doublywalls(U,m);
+proxyrep = @StoSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.4; M = 80;        % proxy params
-p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = quadr(p); % proxy pts
+p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
 a = 0.7; b = 0.15;   % worm params, spills horizontally out of any unit cell
 uex = [0.016778793238;0.005152952237]; flux1ex = nan;  % a=.7,b=.15;  to 1e-12
@@ -21,11 +25,11 @@ uex = [0.016778793238;0.005152952237]; flux1ex = nan;  % a=.7,b=.15;  to 1e-12
 src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i;
 
 % -------------------------- single soln and plot
-N =150; s = wormshape(a,b,N);
+N = 150; s = wormcurve(a,b,N); s.a = mean(s.x);  % a needed for p ext close
 % obstacle no-slip & pressure-drop driving...
 rhs = [zeros(2*N,1); zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
 tic
-E = ELSmatrix(s,p,@SLPmatrix,U,mu,sd);              % fill
+E = ELSmatrix(s,p,proxyrep,U,mu,sd);                % fill
 co = linsolve(E,rhs,lso);                           % direct bkw stable solve
 toc
 %S = svd(E); disp('last few sing vals of E:'), S(end-5:end) % dim Nul E = 1
@@ -33,42 +37,33 @@ fprintf('resid norm = %.3g\n',norm(E*co - rhs))
 sig = co(1:2*N); psi = co(N+1:end);
 fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
 fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.e1)*jumps(1),s.w'*sig(N+1:end)+abs(U.e2)*jumps(2))
-z = .1+.4i;
-u = evalvel(s,p,mu,sd,U,z,co);
+z = .1+.4i;                                         % test pt
+[u p0] = evalsol(s,p,proxyrep,mu,sd,U,z,co);        % native quad (far) test
 fprintf('u at pt = (%.16g,%.16g)  \t(est abs err: %.3g)\n',u(1),u(2),norm(u-uex))
-%tic; J = evalfluxes(s,p,@SLPmatrix,U,co); toc
+%tic; J = evalfluxes(s,p,proxyrep,U,mu,sd,co); toc
 %fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),J(1)-flux1ex)
 if 1   % figure
-  nx = 101; gx = 0.5*((0:nx-1)/(nx-1)*2-1); ng = nx^2;  % fine pres eval grid
-  gy = gx; [xx yy] = meshgrid(gx,gy); zz = (xx(:)+1i*yy(:)); clear xx yy;
-  tic; pg = evalpres(s,p,mu,sd,U,zz,co,0); toc
-  pg = reshape(pg,[nx nx]) - pg(ceil(ng/2));   % offset by pres @ 0
-  for i=-1:1, for j=-1:1, pg(s.inside(zz+U.e1*i+U.e2*j)) = nan; end, end % tidy
-  figure; contourf(gx,gy,pg,[-.6:.1:.6]); colormap(jet(256)); hold on;  % pres
+  nx = 201; gx = 0.5*((0:nx-1)/(nx-1)*2-1); ng = nx^2;  % fine pres eval grid
+  gy = gx; [zz ii] = extgrid(gx,gy,s,U);
+  pg = nan(ng,1);                           % pressure on fine grid
+  tic; [~,pg(ii)] = evalsol(s,p,proxyrep,mu,sd,U,zz(ii),co,1); toc
+  pg = reshape(pg,[nx nx]) - p0;            % shift to pres=0 at test pt
+  figure; contourf(gx,gy,pg,[-.6:.1:.6]); colormap(jet(256)); hold on;
   nx = 26; gx = 0.5*((0:nx-1)/(nx-1)*2-1); ng = nx^2;  % coarse vel eval grid
-  gy = gx; [xx yy] = meshgrid(gx,gy); zz = (xx(:)+1i*yy(:)); clear xx yy;
-  in = 0*zz;                          % indices inside (not to evaluate)
-  for i=-1:1, for j=-1:1, si = s.inside(zz+U.e1*i+U.e2*j); in(si) = 1; end, end
+  gy = gx; [zz ii] = extgrid(gx,gy,s,U);
   ug = nan(2*ng,1);
-  tic; ug([~in;~in]) = evalvel(s,p,mu,sd,U,zz(~in),co,1); toc
+  tic; ug([ii;ii]) = evalsol(s,p,proxyrep,mu,sd,U,zz(ii),co,1); toc
   u1 = reshape(ug(1:ng),[nx nx]); u2 = reshape(ug(ng+1:end),[nx nx]); % u cmpts
-  quiver(gx,gy,u1,u2,2.0,'k-');       % show vector field
-  n=1; for i=-n:n, for j=-n:n, plot([s.x;s.x(1)]+j+1i*i,'-'); end,end % curves
+  % the following sends only the non-nan parts of grid since otherwise get dots:
+  quiver(real(zz(ii)),imag(zz(ii)),u1(ii),u2(ii),2.0,'k-');  % show vec field
+  n=1; for i=-n:n, for j=-n:n, plot([s.x;s.x(1)]+j+1i*i,'-'); end,end  % curves
   plot([L.x;R.x;T.x;B.x],'b.');  % wall nodes
   axis xy equal off; plot(z,'k.'); axis([0 1 0 1]-0.5);
   %for i=-1:1, for j=-1:1, plot(src.x+U.e1*i+U.e2*j,'k*'); end, end % known
-  text(0,0,'$\Omega$','interpreter','latex');
-  %text(-1.2,1.3,'(a)'); %,'fontsize',14);
-  %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 stosolK1.eps
+  text(0,0,'$\Omega$','interpreter','latex','fontsize',14);
+  text(-.58,.45,'(a)'); %,'fontsize',14);
+  set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/stosolK1.eps
 end
-
-keyboard; return
-
-
-
-
-
-
 
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan*Ns; res = us; rest = us; ust = us; es = us;
@@ -163,45 +158,28 @@ end
 %keyboard
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-function [U L R B T] = walls(U,M)  % setup walls with M nodes for unit square U
-[x w] = gauss(M); w=w/2;
-L.x = (-U.e1 + U.e2*x)/2; L.nx = (-1i*U.e2)/abs(U.e2) + 0*L.x; L.w=w*abs(U.e2);
-R = L; R.x = L.x + U.e1;
-B.x = (-U.e2 + U.e1*x)/2; B.nx = (1i*U.e1)/abs(U.e1) + 0*B.x; B.w=w*abs(U.e1);
-T = B; T.x = B.x + U.e2;
-U.L = L; U.T = T; U.R = R; U.B = B;
-
-function u = evalvel(s,p,mu,sd,U,z,co,close)     % evaluate velocity field
-% z = list of targets as C values. p = proxy struct, s = source curve struct
+function [u p] = evalsol(s,pr,proxyrep,mu,sd,U,z,co,close) % eval soln rep u,p
+% z = list of targets as C values. pr = proxy struct, s = source curve struct
 % co = full coeff vec, U = unit cell struct, mu = viscosity
-% sd = prefactors for source rep, close enables special close quadr. 6/7/16
-if nargin<8, close=0; end
-N = numel(s.x); nei = U.nei;
-sig = co(1:2*N); psi = co(2*N+1:end); % split up solution coeffs (psi=proxy)
-u = SLPmatrix(struct('x',z),p,mu) * psi;      % init u w/ proxies (always far)
-if ~close                             % naive quadr rule
-  z = struct('x',z);
-  for i=-nei:nei, for j=-nei:nei, a = U.e1*i+U.e2*j;    % src trans
-      u = u + sd(1)*(SLPmatrix(z,s,mu,a) * sig) + sd(2)*(DLPmatrix(z,s,mu,a) * sig);  % naive matvecs, vel due to completed curve rep
-    end,end
-else                                  % use exterior close eval for all pts
-  sigc = sig(1:N) + 1i*sig(N+1:end);  % pack as C-format density
-  for i=-nei:nei, for j=-nei:nei, a = U.e1*i+U.e2*j; % src trans (done on targ)
-      uij = (sd(1)/mu)*StokesScloseeval(z-a,s,sigc,'e') + sd(2)*StokesDcloseeval(z-a,s,sigc,'e');   % note mu factor only for SLP defn
-      u = u + [real(uij);imag(uij)];  % unpack C-format vel
-    end,end
+% sd = prefactors for source rep, close enables special close quadr.
+% Note: not for self-eval since srcsum2 used, 6/30/16
+if nargin<9, close=0; end              % default is plain native quadr
+z = struct('x',z);                     % make targets z a segment struct
+N = numel(s.x);
+sig = co(1:2*N); psi = co(2*N+1:end);  % split into sig (density) & psi (proxy)
+if close, S = @(t,s,mu,dens) StoSLP_closeglobal(t,s,mu,dens,'e'); % exterior
+  D = @(t,s,mu,dens) StoDLP_closeglobal(t,s,mu,dens,'e');
+else, S = @StoSLP; D = @StoDLP; end    % NB now native & close have same 4 args
+if nargout==1                          % don't want pressure output
+  u = proxyrep(z,pr,mu,psi);           % init sol w/ proxies (always far)
+  u = u + sd(1)*srcsum2(S,U.trlist,[],z,s,mu,sig) + sd(2)*srcsum2(D,U.trlist,[],z,s,mu,sig);
+else  
+  [u p] = proxyrep(z,pr,mu,psi);       % init sol w/ proxies (always far)
+  [uS pS] = srcsum2(S,U.trlist,[],z,s,mu,sig);
+  [uD pD] = srcsum2(D,U.trlist,[],z,s,mu,sig);
+  u = u + sd(1)*uS + sd(2)*uD;
+  p = p + sd(1)*pS + sd(2)*pD;
 end
- 
-function pr = evalpres(s,p,mu,sd,U,z,co,close)
-% same as evalvel but evaluates pressure. 6/7/16. *** TODO CLOSE EVAL
-if nargin<8, close=0; end
-z = struct('x',z); N = numel(s.x); nei = U.nei;
-sig = co(1:2*N); psi = co(2*N+1:end);    % split up solution coeffs (psi=proxy)
-pr = SLPpresmatrix(z,p,mu) * psi;        % init w/ proxies
-for i=-nei:nei, for j=-nei:nei, a = U.e1*i+U.e2*j;    % src trans
-    pr = pr + sd(1)*(SLPpresmatrix(z,s,mu,a) * sig) + sd(2)*(DLPpresmatrix(z,s,mu,a) * sig);  % pressure due to completed curve rep
-  end,end
 
 function J = evalfluxes(s,p,proxyrep,U,co)   % ***** MAKE STOKES
 % inputs as in evalsol. Uses Gary-inspired bdry of 3x3 block far-field method
@@ -221,223 +199,53 @@ t.x = vertcat(x{:}); t.nx = [repmat(U.L.nx,[6 1]); repmat(U.B.nx,[6 1])];
 amts = [0 0 0 3 3 3 -1 -2 -3 1 2 3; -1 -2 -3 1 2 3 0 0 0 3 3 3];  % wall wgts
 J = J + sum(repmat(u',[2 1]).*kron(amts,w),2);   % weight each wall
 
-function s = wormshape(a,b,N)    % define curve and quadr.   a,b shape params
-s.t = (1:N)'/N*2*pi; s.x = a*cos(s.t)+b*1i*sin(s.t);
-s.x = s.x + 0.3i*sin(2*real(s.x));   % spec diff can limit acc in this shape
-s.inside = @(z) (real(z)/a).^2+((imag(z)-0.3*sin(2*real(z)))/b).^2 < 1; % yuk
-s = quadr(s);  % uses spectral differentiation, not as acc as analytic kappa(s)
-
-function s = quadr(s)  % interp curve geom, periodic trapezoid quadr
-N = length(s.x); s.xp = perispecdiff(s.x); s.xpp = perispecdiff(s.xp);
-s.sp = abs(s.xp); s.tang = s.xp./s.sp; s.nx = -1i*s.tang; 
-s.cur = -real(conj(s.xpp).*s.nx)./s.sp.^2; s.w = 2*pi/N*s.sp; % speed weights
-s.cw = 1i*s.nx.*s.w;  % complex weights (incl complex speed)
-
-function g = perispecdiff(f)
-% PERISPECDIFF - use FFT to take periodic spectral differentiation of vector
-%
-% g = PERISPECDIFF(f) returns g the derivative of the spectral interpolant
-%  of f, which is assumed to be the values of a smooth 2pi-periodic function
-%  at the N gridpoints 2.pi.j/N, for j=1,..,N (or any translation of such
-%  points).
-%
-% Barnett 2/18/14
-N = numel(f);
-if mod(N,2)==0   % even
-  g = ifft(fft(f(:)).*[0 1i*(1:N/2-1) 0 1i*(-N/2+1:-1)].');
-else
-  g = ifft(fft(f(:)).*[0 1i*(1:(N-1)/2) 1i*((1-N)/2:-1)].');
-end
-g = reshape(g,size(f));
-
-function h = showseg(s, U)    % plot segments & possibly its 2D nei images
-if nargin<2, U.nei = 0; U.e1 = 0; U.e2 = 0; end % dummy uc
-if iscell(s), for i=1:numel(s), showseg(s{i},U); end, return, end % multi segs
-for i=-U.nei:U.nei, for j=-U.nei:U.nei
-  plot(s.x+U.e1*i+U.e2*j, 'b.-'); axis equal xy;
-  l=0.05; hold on; plot([s.x+U.e1*i+U.e2*j, s.x+l*s.nx+U.e1*i+U.e2*j].', 'k-');
-end, end
-
 function [E A B C Q] = ELSmatrix(s,p,proxyrep,U,mu,sd)
-% builds matrix blocks for Stokes extended linear system, S+D rep w/ Kress
-nei = U.nei; N = numel(s.x);
-A = (sd(2)/2)*eye(2*N);    % exterior S+D self vel matrix, starting w/ jump rel
-for i=-nei:nei, for j=-nei:nei  % direct sum
-    A = A + sd(1)*SLPmatrix(s,s,mu,U.e1*i+U.e2*j) + sd(2)*DLPmatrix(s,s,mu,U.e1*i+U.e2*j);
-  end,end
+% builds matrix blocks for Stokes extended linear system, S+D rep w/ Kress self
+N = numel(s.x);
+A = sd(1)*srcsum(@StoSLP,U.trlist,[],s,s,mu) + sd(2)*(eye(2*N)/2 + srcsum(@StoDLP,U.trlist,[],s,s,mu));   % notes: DLP gives exterior JR term; srcsum self is ok
 B = proxyrep(s,p,mu);     % map from proxy density to vel on curve
 C = Cblock(s,U,mu,sd);
-[QL QLt] = proxyrep(U.L,p,mu); [QR QRt] = proxyrep(U.R,p,mu); % vel, traction
-[QB QBt] = proxyrep(U.B,p,mu); [QT QTt] = proxyrep(U.T,p,mu);
+[QL,~,QLt] = proxyrep(U.L,p,mu); [QR,~,QRt] = proxyrep(U.R,p,mu); % vel, tract
+[QB,~,QBt] = proxyrep(U.B,p,mu); [QT,~,QTt] = proxyrep(U.T,p,mu);
 Q = [QR-QL; QRt-QLt; QT-QB; QTt-QBt];
 E = [A B; C Q];
 
 function C = Cblock(s,U,mu,sd)     % fill C from source curve s to U walls
 % sd controls prefactors on SLP & DLP for Stokes rep on the obstacle curve
-nei = U.nei; N = numel(s.x); m = numel(U.L.x);
-CL = zeros(2*m,2*N); CLn = CL;   % by "n" we of course mean traction
-for i=-nei:nei
-  [Ci Cni] = SLPmatrix(U.L,s,mu,nei*U.e1+i*U.e2);
-  CL = CL+sd(1)*Ci; CLn=CLn+sd(1)*Cni;
-  [Ci Cni] = DLPmatrix(U.L,s,mu,nei*U.e1+i*U.e2);
-  CL = CL+sd(2)*Ci; CLn=CLn+sd(2)*Cni;
-end
-CR = 0*CL; CRn = CR;
-for i=-nei:nei
-  [Ci Cni] = SLPmatrix(U.R,s,mu,-nei*U.e1+i*U.e2);
-  CR = CR+sd(1)*Ci; CRn=CRn+sd(1)*Cni;
-  [Ci Cni] = DLPmatrix(U.R,s,mu,-nei*U.e1+i*U.e2);
-  CR = CR+sd(2)*Ci; CRn=CRn+sd(2)*Cni;
-end
-CB = 0*CL; CBn = CB;
-for i=-nei:nei
-  [Ci Cni] = SLPmatrix(U.B,s,mu,nei*U.e2+i*U.e1);
-  CB = CB+sd(1)*Ci; CBn=CBn+sd(1)*Cni;
-  [Ci Cni] = DLPmatrix(U.B,s,mu,nei*U.e2+i*U.e1);
-  CB = CB+sd(2)*Ci; CBn=CBn+sd(2)*Cni;
-end
-CT = 0*CL; CTn = CT;
-for i=-nei:nei
-  [Ci Cni] = SLPmatrix(U.T,s,mu,-nei*U.e2+i*U.e1);
-  CT = CT+sd(1)*Ci; CTn=CTn+sd(1)*Cni;
-  [Ci Cni] = DLPmatrix(U.T,s,mu,-nei*U.e2+i*U.e1);
-  CT = CT+sd(2)*Ci; CTn=CTn+sd(2)*Cni;
-end
-C = [CR-CL; CRn-CLn; CT-CB; CTn-CBn];
+n = U.nei; e1 = U.e1; e2 = U.e2; S = @StoSLP; D = @StoDLP;      % abbrevs
+trlist = n*e1 + (-n:n)*e2;
+[CLS,~,TLS] = srcsum(S,trlist,[],U.L,s,mu);
+[CLD,~,TLD] = srcsum(D,trlist,[],U.L,s,mu);
+trlist = -n*e1 + (-n:n)*e2;
+[CRS,~,TRS] = srcsum(S,trlist,[],U.R,s,mu);
+[CRD,~,TRD] = srcsum(D,trlist,[],U.R,s,mu);
+trlist = (-n:n)*e1 + n*e2;
+[CBS,~,TBS] = srcsum(S,trlist,[],U.B,s,mu);
+[CBD,~,TBD] = srcsum(D,trlist,[],U.B,s,mu);
+trlist = (-n:n)*e1 - n*e2;
+[CTS,~,TTS] = srcsum(S,trlist,[],U.T,s,mu);
+[CTD,~,TTD] = srcsum(D,trlist,[],U.T,s,mu);
+C = sd(1)*[CRS-CLS; TRS-TLS; CTS-CBS; TTS-TBS]  +...
+    sd(2)*[CRD-CLD; TRD-TLD; CTD-CBD; TTD-TBD];
 
-function u = knownsol(U,z,src)
-% z = targets. U = unit cell struct, src = charge loc.  output potential only
-% Note use of dipole (monopole would work, but dipole closer to application)
-nei = U.nei;
-u = 0*z;
-for i=-nei:nei, for j=-nei:nei
-    u = u + DLPmatrix(struct('x',z), src, U.e1*i+U.e2*j);  % pot due to DLP
-  end,end
+function u = knownsol(U,z,src,mu)
+% z = targets. U = unit cell struct, src = 1-pt struct.  output vel only
+u = srcsum(@StoSLP, U.trlist, [], struct('x',z), src, mu);   % 1-col mat fill
 
 function rhs = knownrhs(src,s,U)
-% src is a dipole source with x, w, nx; it will be summed over 3x3, unit mag.
+% src is a 1-pt struct with x, w, nx; it will be summed over 3x3, unit mag.
 % s is usual target curve (needs normals).
 % The rhs will always be consistent, with f and g nonconstant. Matches knownsol.
-nei = U.nei;
-A = zeros(numel(s.x),numel(src.x));
-for i=-nei:nei, for j=-nei:nei        % direct sum
-    [~,Aij] = DLPmatrix(s,src,U.e1*i+U.e2*j); A = A + Aij;
-  end,end
-f = A;
-g = Cblock(src,U,@DLPmatrix);
+
+% *** FIX FOR STO
+[~,f] = srcsum(@LapDLP,U.trlist,[],s,src);    % direct Neu data sum to curve
+g = Cblock(src,U,@LapDLP);
 rhs = [f;g];
 
-function [A,T] = SLPmatrix(t,s,mu,a) % single-layer 2D Stokes kernel vel matrix
-% Returns 2N-by-2N matrix from src force vector to 2 flow component
-% t = target seg (x cols), s = src seg, a = optional translation of src seg.
-% Kress log-singularity quadrature for self-interaction.
-% 2nd output is traction matrix, needs t.nx normal (C-#); no self-int yet.
-if nargin<4, a = 0; end  % complex number interpreted as x+iy
-N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.' + a, [M 1]);    % C-# displacements mat
-irr = 1./(conj(r).*r);    % 1/r^2
-d1 = real(r); d2 = imag(r);
-logir = -log(abs(r));  % log(1/r) diag block
-c = 1/(4*pi*mu);       % factor from Hsiao-Wendland book, Ladyzhenskaya
-if numel(s.x)==numel(t.x) && max(abs(s.x+a-t.x))<1e-14   % self via Kress
-  S = logir + circulant(0.5*log(4*sin(pi*(0:N-1)/N).^2)); % peri log
-  S(diagind(S)) = -log(s.sp);                       % diagonal limit
-  m = 1:N/2-1; Rjn = ifft([0 1./m 2/N 1./m(end:-1:1)])/2;  % Kress Rj(N/2)/4pi
-  S = S/N + circulant(Rjn); % includes SLP prefac 1/2pi. Kress peri log matrix L
-  S = S .* repmat(s.sp.',[N 1]);  % include speed factors (not 2pi/N weights)
-  A = (1/2/mu) * kron(eye(2),S);       % prefactor & diagonal blocks
-  t1 = real(s.tang); t2 = imag(s.tang);  % now do r tensor r part...
-  A11 =  d1.^2.*irr; A11(diagind(A11)) = t1.^2;     % diagonal limits
-  A12 =  d1.*d2.*irr; A12(diagind(A12)) = t1.*t2;
-  A22 =  d2.^2.*irr; A22(diagind(A22)) = t2.^2;
-  A = A + c*[A11 A12; A12 A22].*repmat([s.w(:)' s.w(:)'], [2*M 1]); % pref & wei
-else                     % distinct src and targ
-  A12 = d1.*d2.*irr;     % off diag vel block
-  A = c*[logir + d1.^2.*irr, A12;                         % u_x
-         A12,                logir + d2.^2.*irr];         % u_y
-  A = A .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
-end
-if nargout>1           % traction (negative of DLP vel matrix w/ nx,ny swapped)
-  rdotn = d1.*repmat(real(t.nx), [1 N]) + d2.*repmat(imag(t.nx), [1 N]);
-  rdotnir4 = rdotn.*(irr.*irr); clear rdotn
-  A12 = -(1/pi)*d1.*d2.*rdotnir4;
-  T = [-(1/pi)*d1.^2.*rdotnir4,   A12;                   % own derivation
-     A12,                      -(1/pi)*d2.^2.*rdotnir4];
-  T = T .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
-end
-
-function A = SLPpresmatrix(t,s,mu,a) % single-layer 2D Stokes kernel press mat
-% Returns N-by-2N matrix from src force vector to pressure value, no self-int.
-% t = target seg (x cols), s = src seg, a = optional transl of src seg. 2/1/14
-if nargin<4, a = 0; end
-N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.' + a, [M 1]);    % C-# displacements mat
-irr = 1./(conj(r).*r);    % 1/r^2
-d1 = real(r); d2 = imag(r);
-A = (1/2/pi) * [d1.*irr, d2.*irr];                   % pressure
-A = A .* repmat([s.w(:)' s.w(:)'], [M 1]);           % quadr wei
-
-function [A,T] = DLPmatrix(t,s,mu,a) % double-layer 2D Stokes vel kernel matrix
-% Returns 2N-by-2N matrix from src force vector to 2 flow components.
-% If detects self-int, does correct diagonal limit, no jump condition (PV int).
-% t = target seg (x cols), s = src seg, a = optional transl of src seg.
-% 2nd output is optional traction matrix, without self-eval. Barnett 3/2/14
-if nargin<4, a = 0; end  % complex number interpreted as x+iy
-N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.' + a, [M 1]);    % C-# displacements mat
-irr = 1./(conj(r).*r);    % 1/R^2
-d1 = real(r); d2 = imag(r);
-rdotny = d1.*repmat(real(s.nx)', [M 1]) + d2.*repmat(imag(s.nx)', [M 1]);
-rdotnir4 = rdotny.*(irr.*irr); if nargout<=1, clear rdotny; end
-A12 = (1/pi)*d1.*d2.*rdotnir4;  % off diag vel block
-A = [(1/pi)*d1.^2.*rdotnir4,   A12;                     % Ladyzhenskaya
-     A12,                      (1/pi)*d2.^2.*rdotnir4];
-if numel(s.x)==numel(t.x) && max(abs(s.x+a-t.x))<1e-14
-  c = -s.cur/2/pi;           % diagonal limit of Laplace DLP
-  tx = 1i*s.nx; t1=real(tx); t2=imag(tx);     % tangent vectors on src curve
-  A(sub2ind(size(A),1:N,1:N)) = c.*t1.^2;       % overwrite diags of 4 blocks:
-  A(sub2ind(size(A),1+N:2*N,1:N)) = c.*t1.*t2;
-  A(sub2ind(size(A),1:N,1+N:2*N)) = c.*t1.*t2;
-  A(sub2ind(size(A),1+N:2*N,1+N:2*N)) = c.*t2.^2;
-end
-A = A .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
-if nargout>1           % traction, my formula
-  nx1 = repmat(real(t.nx), [1 N]); nx2 = repmat(imag(t.nx), [1 N]);
-  rdotnx = d1.*nx1 + d2.*nx2;
-  ny1 = repmat(real(s.nx)', [M 1]); ny2 = repmat(imag(s.nx)', [M 1]);
-  dx = rdotnx.*irr; dy = rdotny.*irr; dxdy = dx.*dy;
-  R12 = d1.*d2.*irr; R = [d1.^2.*irr, R12; R12, d2.^2.*irr];
-  nydotnx = nx1.*ny1 + nx2.*ny2;
-  T = R.*kron(ones(2), nydotnx.*irr - 8*dxdy) + kron(eye(2), dxdy);
-  T = T + [nx1.*ny1.*irr, nx1.*ny2.*irr; nx2.*ny1.*irr, nx2.*ny2.*irr] + ...
-      kron(ones(2),dx.*irr) .* [ny1.*d1, ny1.*d2; ny2.*d1, ny2.*d2] + ...
-      kron(ones(2),dy.*irr) .* [d1.*nx1, d1.*nx2; d2.*nx1, d2.*nx2];
-  T = (mu/pi) * T;                                        % prefac
-  T = T .* repmat([s.w(:)' s.w(:)'], [2*M 1]);            % quadr wei
-end
-
-function A = DLPpresmatrix(t,s,mu,a) % double-layer 2D Stokes kernel press mat
-% Returns N-by-2N matrix from src force vector to pressure values, no self-int
-% t = target seg (x cols), s = src seg, a = optional transl of src seg. 2/1/14
-if nargin<4, a = 0; end
-N = numel(s.x); M = numel(t.x);
-r = repmat(t.x, [1 N]) - repmat(s.x.' + a, [M 1]);    % C-# displacements mat
-irr = 1./(conj(r).*r);    % 1/R^2
-d1 = real(r); d2 = imag(r);
-rdotn = d1.*repmat(real(s.nx)', [M 1]) + d2.*repmat(imag(s.nx)', [M 1]);
-rdotnir4 = rdotn.*(irr.*irr); clear rdotn
-A = [(mu/pi)*(-repmat(real(s.nx)', [M 1]).*irr + 2*rdotnir4.*d1), ...
-     (mu/pi)*(-repmat(imag(s.nx)', [M 1]).*irr + 2*rdotnir4.*d2)  ];
-A = A .* repmat([s.w(:)' s.w(:)'], [M 1]);           % quadr wei
-
-function i = diagind(A) % return indices of diagonal of square matrix
-N = size(A,1); i = sub2ind(size(A), 1:N, 1:N);
-
-% GAUSS  nodes x (Legendre points) and weights w
-%        for Gauss quadrature on [-1,1], for N small (<100). Trefethen book.
-function [x,w] = gauss(N)
-beta = .5./sqrt(1-(2*(1:N-1)).^(-2));
-T = diag(beta,1) + diag(beta,-1);
-[V,D] = eig(T);
-x = diag(D); [x,i] = sort(x);
-w = 2*V(1,i).^2;
+function [zz ii] = extgrid(gx,gy,s,U)  % grid points and indices outside Omegas
+% given gx,gy 1d x,y grids, s=curve segment, U = unit cell struct, return
+% zz = col list of grid pts as C-#s, and ii = logical index array if outside
+% Omega and all images
+[xx yy] = meshgrid(gx,gy); zz = (xx(:)+1i*yy(:)); clear xx yy;
+ii = true(size(zz));               % indices outside Omega or its copies
+for i=-1:1, for j=-1:1, si = s.inside(zz+U.e1*i+U.e2*j); ii(si)=false; end, end

@@ -18,7 +18,7 @@ U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:); % 3x3
 m = 22; [U L R B T] = doublywalls(U,m);
 proxyrep = @LapSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.4; M = 80;        % proxy params
-p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = setupquad(p); % proxy pts
+p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p); % proxy pts
 
 a = 0.7; b = 0.15; % worm params, spills horizontally out of any unit cell
 uexdiff = 0.11101745840635; flux1ex = 0.5568613934999;  % a=.7,b=.15.  1e-12
