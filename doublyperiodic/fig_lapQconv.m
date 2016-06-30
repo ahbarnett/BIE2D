@@ -12,16 +12,16 @@ ve = @(z) log(abs(z-z0));   % exact soln and its partials...
 vex = @(z) real(z-z0)./abs(z-z0).^2; vey = @(z) imag(z-z0)./abs(z-z0).^2;
 disp('test partials of known exact v:'); testpartials(ve,vex,vey)
 
-U.e1 = 1; U.e2 = 1i; U.nei = 0;  % unit cell
-Rp = 1.4;
-M = 100; p.x = Rp * exp(1i*(1:M)'/M*2*pi); p = setupquad(p);    % proxy pts
-proxyrep = @LapSLP;   % sets proxy pt type via a kernel function call
+U.e1 = 1; U.e2 = 1i;      % unit cell lattice vectors
+Rp = 1.4;                 % proxy radius
+M = 100; p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);    % proxy pts
+proxyrep = @LapSLP;       % sets proxy pt type via a kernel function call
 
 nt = 100; t.x = rand(nt,1)-0.5 + 1i*(rand(nt,1)-0.5);  % rand test pts in UC
 %[xx yy] = meshgrid(linspace(-.5,.5,10)); t.x = xx(:)+1i*yy(:); % tp grid in UC
 Atest = proxyrep(t,p);   % evaluation matrix, only changes when M does
 
-% m-conv plot
+% m-conv plot (# wall pts)
 ms = 2:2:24; verrs = nan*ms;
 for i=1:numel(ms)
   [U L R B T] = doublywalls(U,ms(i));

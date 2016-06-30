@@ -2,7 +2,8 @@ function [U L R B T] = doublywalls(U,M)
 % DOUBLYWALLS   setup walls with m nodes for doubly-periodic unit cell U
 %
 % [U L R B T] = doublywalls(U,m) sets up struct U so contains 4 wall segments
-%  with m Legendre nodes on each, and normals to right or up.
+%  with m Legendre nodes on each, and normals to right or up. The nodes L.x
+%  etc are col vecs but the weights L.w etc row vecs (unlike in setupquad).
 
 % Barnett broken out 6/29/16
 
