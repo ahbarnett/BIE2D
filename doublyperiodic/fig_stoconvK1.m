@@ -20,12 +20,13 @@ Rp = 1.4; M = 80;        % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
 a = 0.7; b = 0.15;   % worm params, spills horizontally out of any unit cell
-uex = [0.016778793238;0.005152952237]; flux1ex = nan;  % a=.7,b=.15;  to 1e-12
+uex = [0.016778793238;0.005152952237]; flux1ex = 0.008234042360; % a=.7,b=.15;  to 1e-12
 % known soln stokeslet location: must be deep inside Omega (careful)
 src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i;
 
 % -------------------------- single soln and plot
 N = 150; s = wormcurve(a,b,N); s.a = mean(s.x);  % a needed for p ext close
+%s.x = s.x + 0.1i;  % check translational invariance of flux
 % obstacle no-slip & pressure-drop driving...
 rhs = [zeros(2*N,1); zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
 tic
@@ -40,9 +41,9 @@ fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.
 z = .1+.4i;                                         % test pt
 [u p0] = evalsol(s,p,proxyrep,mu,sd,U,z,co);        % native quad (far) test
 fprintf('u at pt = (%.16g,%.16g)  \t(est abs err: %.3g)\n',u(1),u(2),norm(u-uex))
-%tic; J = evalfluxes(s,p,proxyrep,U,mu,sd,co); toc
-%fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),J(1)-flux1ex)
-if 1   % figure
+tic; J = evalfluxes(s,p,proxyrep,U,mu,sd,co); toc
+fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),abs(J(1)-flux1ex))
+if 0   % figure
   nx = 201; gx = 0.5*((0:nx-1)/(nx-1)*2-1); ng = nx^2;  % fine pres eval grid
   gy = gx; [zz ii] = extgrid(gx,gy,s,U);
   pg = nan(ng,1);                           % pressure on fine grid
@@ -62,42 +63,46 @@ if 1   % figure
   %for i=-1:1, for j=-1:1, plot(src.x+U.e1*i+U.e2*j,'k*'); end, end % known
   text(0,0,'$\Omega$','interpreter','latex','fontsize',14);
   text(-.58,.45,'(a)'); %,'fontsize',14);
-  set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/stosolK1.eps
+  %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/stosolK1.eps
 end
 
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
-us = nan*Ns; res = us; rest = us; ust = us; es = us;
-Js = nan(2,numel(Ns)); Jst = Js;
-uek = knownsol(U,z,src);   % known dipole 3x3 grid soln, fixed, ignores jumps
-v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; % Sifuentes vectors
-for i=1:numel(Ns)
-  s = wormshape(a,b,Ns(i));
-  g = [jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x]; rhs = [0*s.x; g]; %driving
-  [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,U);
+us = nan(2,numel(Ns)); res = us; rest = us; ust = us; es = us; Js = us;Jst = Js;
+uek = knownsol(U,z,src,mu);   % known dipole 3x3 grid soln, fixed, ignores jumps
+
+% *** to do: put in rank-3 v,d here, and fix below dag stuff..
+
+%v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; % Sifuentes vectors
+for i=1:numel(Ns), N = Ns(i);
+  s = wormcurve(a,b,Ns(i));
+  g = [zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
+  rhs = [zeros(2*N,1); g]; % driving
+  [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,U,mu,sd);
   co = linsolve(E,rhs,lso);
   res(i) = norm(E*co - rhs);
-  u = evalsol(s,p,proxyrep,U,z,co);
-  us(i) = u(2)-u(1);
-  Js(:,i) = evalfluxes(s,p,proxyrep,U,co);
-  Qtilde = Q + v*d';  % Schur stuff...
-  %if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
-  QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
-  %Qtdag = pinv(Qtilde); QtdagC = Qtdag*C; Qtdagg = Qtdag*g;  % loses 7 digits
-  taut = gmres(@(x) A*x - Bm*(QtdagC*x), -Bm*Qtdagg, [], 1e-14, Ns(i));
+  us(:,i) = evalsol(s,p,proxyrep,mu,sd,U,z,co);   % both cmpts of vel
+  Js(:,i) = evalfluxes(s,p,proxyrep,U,mu,sd,co);
+  %Qtilde = Q + v*d';  % Schur stuff...
+  %%if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
+  %QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
+  %%Qtdag = pinv(Qtilde); QtdagC = Qtdag*C; Qtdagg = Qtdag*g;  % loses 7 digits
+  %taut = gmres(@(x) A*x - Bm*(QtdagC*x), -Bm*Qtdagg, [], 1e-14, Ns(i));
   %taut = linsolve(A - Bm*QtdagC,-Bm*Qtdagg,lso);  % direct soln
-  %cond(A - Bm*QtdagC)  % 8.4
-  xit = Qtdagg - QtdagC*taut; cot = [taut;xit];  % build full soln vector
+  %%cond(A - Bm*QtdagC)  % 8.4
+  %xit = Qtdagg - QtdagC*taut; cot = [taut;xit];  % build full soln vector
+  cot = linsolve(E,rhs,lso);
   rest(i) = norm(E*cot - rhs);      % residual back in ELS
-  u = evalsol(s,p,proxyrep,U,z,cot);
-  ust(i) = u(2)-u(1);
-  Jst(:,i) = evalfluxes(s,p,proxyrep,U,cot);  % Schur flux
-  rhsk = knownrhs(src,s,U);     % set up RHS for known 3x3 unit source soln...
-  cok = linsolve(E,rhsk,lso);   % coeffs for approx to known soln
-  %norm(E*cok - rhsk)    % resid for known soln - plot?
-  uk = evalsol(s,p,proxyrep,U,z,cok);       % eval this approx
-  es(i) = uk(2)-uk(1)-(uek(2)-uek(1));      % err vs known diff btw test pts
+  ust(:,i) = evalsol(s,p,proxyrep,mu,sd,U,z,cot);
+  Jst(:,i) = evalfluxes(s,p,proxyrep,U,mu,sd,cot);  % Schur flux
+  %rhsk = knownrhs(src,s,U);     % set up RHS for known 3x3 unit source soln...
+  %cok = linsolve(E,rhsk,lso);   % coeffs for approx to known soln
+  %%norm(E*cok - rhsk)    % resid for known soln - plot?
+  %uk = evalsol(s,p,proxyrep,U,z,cok);       % eval this approx
+  %es(i) = uk(2)-uk(1)-(uek(2)-uek(1));      % err vs known diff btw test pts
 end
-fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
+%fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
+
+% *** fix so only one cmpt u1...
 [us',ust',us'-ust']
 [Js(1,:)',Jst(1,:)',Js(1,:)'-Jst(1,:)']
 [Js(2,:)',Jst(2,:)',Js(2,:)'-Jst(2,:)']
@@ -181,21 +186,23 @@ else
   p = p + sd(1)*pS + sd(2)*pD;
 end
 
-function J = evalfluxes(s,p,proxyrep,U,co)   % ***** MAKE STOKES
+function J = evalfluxes(s,p,proxyrep,U,mu,sd,co)
 % inputs as in evalsol. Uses Gary-inspired bdry of 3x3 block far-field method
 if U.nei~=1, warning('U.neu must equal 1'); end
 w = U.L.w; if norm(w-U.B.w)>1e-14, error('L and B must have same weights'); end
 m = numel(w);
-N = numel(s.x); sig = co(1:N); psi = co(N+1:end);
+N = numel(s.x); sig = co(1:2*N); psi = co(2*N+1:end);
 t.x = [U.L.x;U.B.x]; t.nx = [U.L.nx;U.B.nx];  % 2-wall target
-[~,Tn] = proxyrep(t, p); u = Tn * psi;   % proxy contrib to un only
+v = proxyrep(t, p, mu, psi);                  % flow vel on L+B
+u = v(1:2*m).*real(t.nx) + v(2*m+1:end).*imag(t.nx); % proxy contrib to u = v.n
 J = sum(reshape(u,[m 2])'.*([1;1]*w),2);         % .... do its quadr on L,B 
 for i=-1:1      % set up big loop of 12 walls, just their nodes
   x{i+2} = U.L.x - U.e1 +i*U.e2; x{i+5} = x{i+2} + 3*U.e1;
   x{i+8} = U.B.x +i*U.e1 -U.e2; x{i+11} = x{i+8} + 3*U.e2;
 end
 t.x = vertcat(x{:}); t.nx = [repmat(U.L.nx,[6 1]); repmat(U.B.nx,[6 1])];
-[~,Tn] = SLPmatrix(t, s); u = Tn * sig;   % central density only
+v = sd(1)*StoSLP(t,s,mu,sig) + sd(2)*StoDLP(t,s,mu,sig);  % ctr copy only
+u = v(1:12*m).*real(t.nx) + v(12*m+1:end).*imag(t.nx);   % v.n, as col vec
 amts = [0 0 0 3 3 3 -1 -2 -3 1 2 3; -1 -2 -3 1 2 3 0 0 0 3 3 3];  % wall wgts
 J = J + sum(repmat(u',[2 1]).*kron(amts,w),2);   % weight each wall
 
