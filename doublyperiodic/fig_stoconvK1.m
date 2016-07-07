@@ -69,10 +69,10 @@ end
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan(2,numel(Ns)); res = us; rest = us; ust = us; es = us; Js = us;Jst = Js;
 uek = knownsol(U,z,src,mu);   % known dipole 3x3 grid soln, fixed, ignores jumps
-
-% *** to do: put in rank-3 v,d here, and fix below dag stuff..
-
-%v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; % Sifuentes vectors
+% Sifuentes vectors...
+v = [zeros(2*M,1);
+%v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; 
+d = 0.1*[[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(b.x);imag(b.x)]];
 for i=1:numel(Ns), N = Ns(i);
   s = wormcurve(a,b,Ns(i));
   g = [zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
@@ -103,7 +103,9 @@ end
 %fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
 
 % *** fix so only one cmpt u1...
-[us',ust',us'-ust']
+rest'
+return
+[us(1,:)',ust(1,:)',us(1,:)'-ust(1,:)']  % 1st cmpt
 [Js(1,:)',Jst(1,:)',Js(1,:)'-Jst(1,:)']
 [Js(2,:)',Jst(2,:)',Js(2,:)'-Jst(2,:)']
 figure; %semilogy(Ns,res,'ro-');  % why is resid always around 1e-14?
@@ -118,7 +120,7 @@ legend('u conv ELS','J_1 conv ELS','u conv Schur','J_1 conv Schur','u err vs kno
 xlabel('N'); text(40,1e-4,'(c)');
 text(140,1e-8, sprintf('$M=%d$,     $m=%d$',M,m),'interpreter','latex');
 axis([Ns(1) Ns(end-1) 1e-15 1e-3]);
-%set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 lapconvK1.eps
+%set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/stoconvK1.eps
 end
 
 %keyboard
