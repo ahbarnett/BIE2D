@@ -104,11 +104,12 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 % * Think about if interface should be t.x.
 % Note in/output format changed to col vecs, 6/27/16
 
-% (c) Alex Barnett, June 2016, based on code from 10/22/13.
+% (c) Alex Barnett, June 2016, based on code from 10/22/13. Blocked 8/2/16
 
 if nargin<1, test_Cau_closeglobal; return; end
 if nargin<5, o = []; end    
 N = numel(s.x);
+%'size vb = ', size(vb)
 if isempty(vb)                  % do matrix filling version (N data col vecs)
   if nargout==1, vc = Cau_closeglobal(x,s,eye(N),side,o);  % THIS IS MN^2 SLOW!
   else, [vc vcp] = Cau_closeglobal(x,s,eye(N),side,o); end
@@ -159,8 +160,8 @@ else    % ------------------------------ multi-vector version ---------------
   % Do bary interp for value outputs:
   % Precompute weights in O(NM)... note sum along 1-axis faster than 2-axis...
   comp = repmat(cw, [1 M]) ./ (repmat(s.x,[1 M]) - repmat(x(:).',[N 1]));
-  % mult input vec version (transp of Wu/Marple): comp size N*N, I0 size N*Nc
-  I0 = permute(sum(repmat(permute(vb,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
+  % mult input vec version (transp of Wu/Marple): comp size N*M, I0 size M*Nc
+  I0 = blockedinterp(vb,comp);    % local func, directly below
   J0 = sum(comp).';  % size N*1, Ioakimidis notation
   if side=='e', J0 = J0-2i*pi; end                      % Helsing exterior form
   vc = I0./(J0*ones(1,Nc));                 % bary form (multi-vec), size M*Nc
@@ -183,7 +184,7 @@ else    % ------------------------------ multi-vector version ---------------
       end
     end
     % now again do bary interp of v' using its value vbp at nodes...
-    I0 = permute(sum(repmat(permute(vbp,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nc]),1),[2 3 1]);
+    I0 = blockedinterp(vbp,comp);
     J0 = sum(comp).';
     if side=='e', J0 = J0-2i*pi; end                    % Helsing exterior form
     vcp = I0./(J0*ones(1,Nc));                          % bary form
@@ -191,6 +192,23 @@ else    % ------------------------------ multi-vector version ---------------
   end
 end
 %%%%%
+
+function I0 = blockedinterp(vb,comp)   % ....................................
+% perform barycentric interpolation using precomputed comp wei mat, used in
+% multi-density vec version above, in a RAM-efficient way (the naive approach
+% is O(M.N.Nc); here we limit RAM by blocking. Output: I0 (size M*Nc).
+% Barnett 8/2/16
+[N M] = size(comp); [N Nc] = size(vb);
+I0 = nan(M,Nc);
+blk = 1e7;          % user param: how many doubles you want to handle in RAM
+Ncstep = min(Nc,ceil(blk/(M*N)));   % how many col vecs from vb in each chunk
+for i=1:Ncstep:Nc        % do blocking, still vectorized efficient
+  ii = i+(0:Ncstep-1); ii = ii(ii<=Nc); Nci = numel(ii);  % don't overrun array
+  vbi = vb(:,ii);   % just the block of density vectors
+  I0(:,ii) = permute(sum(repmat(permute(vbi,[1 3 2]),[1 M 1]).*repmat(comp,[1 1 Nci]),1),[2 3 1]);
+end                                     % ...................................
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [vc, vcp] = cauchycompeval_lsc2d(x,s,vb,side,o)
@@ -268,6 +286,9 @@ else           % 1st deriv wanted...
   end
 end
 
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [vc vcp] = cauchycompmat_lsc2d(x,s,vb,side,o)
 % Multiple vb-vector version of cauchycompeval_lsc2d, written by Gary Marple
@@ -343,7 +364,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 function test_Cau_closeglobal     % test self-reproducing of Cauchy integrals
-N = 200; s = wobblycurve(0.3,5,N);   % smooth wobbly radial shape params
+N = 200; s = wobblycurve(1,0.3,5,N);   % smooth wobbly radial shape params
 tic; %profile clear; profile on;
 format short g
 for side = 'ie'       % test Cauchy formula for holomorphic funcs in and out...

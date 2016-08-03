@@ -117,7 +117,7 @@ S = bsxfun(@times, S, s.sp.');  % include speed (2pi/N weights already in)
 %%%%%%%%%%%%%%%%%%%
 function testCSLPselfmatrix % test spectral conv of complex SLP self-int Nystrom
 % Barnett 10/18/13, repackaged 6/27/16
-s = wobblycurve(0.3,5,200);
+s = wobblycurve(1,0.3,5,200);
 fprintf('CSLP self matrix test, check digits freeze:\n')
 for N=40:40:500  % convergence study of Re v, Im v...
   s = setupquad(s,N); sig = cos(3*s.t + 1); % zero-mean real SLP density func
@@ -129,7 +129,7 @@ end % NB needs N=320 for 13 digits in Re, but 480 for Im part (why slower?)
 %%%%%%%%%%%%%%%%%%%%
 function test_LapSLP_closeglobal  % check far-field matches the native rule
 verb = 0;       % to visualize
-s = wobblycurve(0.3,5,200); s.a = mean(s.x); if verb, figure;showsegment(s); end
+s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
 tau = 0.7+sin(3*s.t);                    % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
 for side = 'ie'

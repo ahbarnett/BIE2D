@@ -64,7 +64,7 @@ for i=1:n, A = A + phlist(i)*At(ii+(i-1)*M,:); end
 function test_srcsum2             % tests non-self interactions only
 
 % density case...
-s = wobblycurve(.3,5,100); t = wobblycurve(.3,5,50); t.x = t.x/2; % t neq s
+s = wobblycurve(1,.3,5,100); t = wobblycurve(1,.3,5,50); t.x = t.x/2; % t neq s
 tau = sin(4*s.t);                            % pick a density
 u = srcsum2(@LapDLP,[0 2], [1 3], t,s, tau);  % do it  (include "phase")
 ss = s; v = LapDLP(t,ss,tau);                % check matches direct sum

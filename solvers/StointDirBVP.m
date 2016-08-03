@@ -11,7 +11,7 @@
 clear;
 mu = 0.7;              % viscosity
 a = .3; w = 5;         % smooth wobbly radial shape params
-N = 400; s = wobblycurve(a,w,N); % # nodes, ~300 for DLP, ~500 for D+S (1e-11)
+N = 400; s = wobblycurve(1,a,w,N); % # nodes, ~300 for DLP, ~500 for D+S (1e-11)
 
 p = []; p.x = [.2+.3i; .1-.4i]; p.nx = exp([1.9i;-0.6i]);  % 2 test pts w/ dirs
 %figure; showsegment({s p})

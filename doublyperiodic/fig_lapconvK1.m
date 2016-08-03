@@ -75,7 +75,7 @@ for i=1:numel(Ns)
   u = evalsol(s,p,proxyrep,U,z,co);
   us(i) = u(2)-u(1);
   Js(:,i) = evalfluxes(s,p,proxyrep,U,co);
-  Qtilde = Q + v*d';  % Schur stuff...
+  Qtilde = Q + v*d';  % Schur stuff... (soln u given suffix "t")
   %if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
   QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
   %Qtdag = pinv(Qtilde); QtdagC = Qtdag*C; Qtdagg = Qtdag*g;  % loses 7 digits

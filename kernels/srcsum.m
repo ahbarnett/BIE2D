@@ -60,7 +60,7 @@ end
 function test_srcsum             % includes self-interactions
 
 % density case...
-s = wobblycurve(.3,5,100);
+s = wobblycurve(1,.3,5,100);
 tau = sin(4*s.t);                            % pick a density
 u = srcsum(@LapDLP,[0 2], [1 3], s,s, tau);  % do it  (include "phase")
 ss = s; v = LapDLP(s,ss,tau);                % check matches direct sum

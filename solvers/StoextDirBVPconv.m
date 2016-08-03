@@ -12,15 +12,16 @@
 
 clear;
 mu = 0.7;              % viscosity
-a = .3; w = 5;         % smooth wobbly radial shape params
+a = .3; w = 5;         % smooth wobbly radial shape params; N=200 gets 1e-14
+%a = .5; w = 8;         % more extreme, needs N=1e3 for 1e-14, 30-40 iters.
 
-p = []; p.x = [2+1.5i];                     % 1 test pt
+p = []; p.x = [2+1.5i];                     % a distant test pt
 
 uinc = @(x) [1+0*x;0*x]; pinc = @(x) 0*x;   % incident uniform flow
 
 Ns = 40:20:200; ut = nan(2,numel(Ns));
 for i=1:numel(Ns), N = Ns(i); % ----------- N-convergence
-  s = wobblycurve(a,w,N); s.a = mean(s.x); %figure; showsegment({s p})
+  s = wobblycurve(1,a,w,N); s.a = mean(s.x); %figure; showsegment({s p})
   A = eye(2*N)/2 + StoDLP(s,s,mu) + StoSLP(s,s,mu);   % Nystrom, ext JR
   rhs = -uinc(s.x);                          % no-slip velocity data
   %tau = A \ rhs;                          % direct, or...
@@ -49,5 +50,4 @@ figure; set(gcf,'name', 'ext no-slip BVP total u,p (closeglobal eval)');
 contourf(gx,gy,pg,[min(pg(:)):.5:max(pg(:))]);
 colormap(jet(256)); axis equal tight; hold on; plot([s.x;s.x(1)],'k-');
 quiver(real(zz(ii)),imag(zz(ii)),u1(ii),u2(ii),2.0,'k-');  % show vec field
-
 %print -dpng stoextnoslip_wobbly_w8_a.5_soln.png

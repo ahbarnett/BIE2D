@@ -8,7 +8,7 @@
 %        Springer, second ed., 1999
 
 clear; a = .3; w = 5;         % smooth wobbly radial shape params
-N = 200; s = wobblycurve(a,w,N);
+N = 200; s = wobblycurve(1,a,w,N);
 
 p = []; p.x = .2+.3i; p.nx = exp(1.9i);   % test pt including a direction
 figure; showsegment({s p})

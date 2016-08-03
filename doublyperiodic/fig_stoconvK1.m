@@ -1,7 +1,7 @@
 function fig_stoconvK1
 % make Stokes no-slip periodic convergence and soln plots.
 % Single inclusion (K=1), native quad for matrix fill, close eval for soln.
-% Adapted from fig_lapconvK1.m, except SLP-type proxy choice hard-wired.
+% Adapted from fig_lapconvK1.m
 % Barnett 6/7/16. 6/30/16 brought into BIE2D
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
@@ -16,13 +16,13 @@ U.e1 = 1; U.e2 = 1i;     % unit cell; nei=1 for 3x3 scheme
 U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:);
 m = 22; [U L R B T] = doublywalls(U,m);
 proxyrep = @StoSLP;      % sets proxy pt type via a kernel function call
-Rp = 1.4; M = 80;        % proxy params
+Rp = 1.4; M = 80; % 80;       % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
 a = 0.7; b = 0.15;   % worm params, spills horizontally out of any unit cell
 uex = [0.016778793238;0.005152952237]; flux1ex = 0.008234042360; % a=.7,b=.15;  to 1e-12
 % known soln stokeslet location: must be deep inside Omega (careful)
-src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i;
+src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i; fsrc = [0.8;0.6];  % src force
 
 % -------------------------- single soln and plot
 N = 150; s = wormcurve(a,b,N); s.a = mean(s.x);  % a needed for p ext close
@@ -30,7 +30,7 @@ N = 150; s = wormcurve(a,b,N); s.a = mean(s.x);  % a needed for p ext close
 % obstacle no-slip & pressure-drop driving...
 rhs = [zeros(2*N,1); zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
 tic
-E = ELSmatrix(s,p,proxyrep,U,mu,sd);                % fill
+E = ELSmatrix(s,p,proxyrep,mu,sd,U);                % fill
 co = linsolve(E,rhs,lso);                           % direct bkw stable solve
 toc
 %S = svd(E); disp('last few sing vals of E:'), S(end-5:end) % dim Nul E = 1
@@ -41,9 +41,9 @@ fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.
 z = .1+.4i;                                         % test pt
 [u p0] = evalsol(s,p,proxyrep,mu,sd,U,z,co);        % native quad (far) test
 fprintf('u at pt = (%.16g,%.16g)  \t(est abs err: %.3g)\n',u(1),u(2),norm(u-uex))
-tic; J = evalfluxes(s,p,proxyrep,U,mu,sd,co); toc
+tic; J = evalfluxes(s,p,proxyrep,mu,sd,U,co); toc
 fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),abs(J(1)-flux1ex))
-if 0   % figure
+if 0   % soln flow figure
   nx = 201; gx = 0.5*((0:nx-1)/(nx-1)*2-1); ng = nx^2;  % fine pres eval grid
   gy = gx; [zz ii] = extgrid(gx,gy,s,U);
   pg = nan(ng,1);                           % pressure on fine grid
@@ -68,53 +68,55 @@ end
 
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan(2,numel(Ns)); res = us; rest = us; ust = us; es = us; Js = us;Jst = Js;
-uek = knownsol(U,z,src,mu);   % known dipole 3x3 grid soln, fixed, ignores jumps
-% Sifuentes vectors...
-v = [zeros(2*M,1);
-%v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; 
-d = 0.1*[[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(b.x);imag(b.x)]];
+uek = knownsol(U,z,src,fsrc,mu);   % known stokeslet 3x3 grid soln, fixed
+v = zeros(8*m,3);   % Sifuentes vectors...
+v(2*m+1:3*m,1) = -1; v(7*m+1:8*m,2) = -1;   % x,y force balance (g_3,g_4)
+v(1:m,3) = 1; v(5*m+1:6*m,3) = 1;           % mass cons (g_1 + g_2)
+%d = 0.01 * randn(2*M,3);
+d = 0.1*[[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(p.x);imag(p.x)]];
 for i=1:numel(Ns), N = Ns(i);
   s = wormcurve(a,b,Ns(i));
-  g = [zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
+  g = [zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];  % pres driving
   rhs = [zeros(2*N,1); g]; % driving
-  [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,U,mu,sd);
+  [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,mu,sd,U);
   co = linsolve(E,rhs,lso);
   res(i) = norm(E*co - rhs);
   us(:,i) = evalsol(s,p,proxyrep,mu,sd,U,z,co);   % both cmpts of vel
-  Js(:,i) = evalfluxes(s,p,proxyrep,U,mu,sd,co);
-  %Qtilde = Q + v*d';  % Schur stuff...
-  %%if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
-  %QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
-  %%Qtdag = pinv(Qtilde); QtdagC = Qtdag*C; Qtdagg = Qtdag*g;  % loses 7 digits
-  %taut = gmres(@(x) A*x - Bm*(QtdagC*x), -Bm*Qtdagg, [], 1e-14, Ns(i));
-  %taut = linsolve(A - Bm*QtdagC,-Bm*Qtdagg,lso);  % direct soln
-  %%cond(A - Bm*QtdagC)  % 8.4
-  %xit = Qtdagg - QtdagC*taut; cot = [taut;xit];  % build full soln vector
-  cot = linsolve(E,rhs,lso);
+  Js(:,i) = evalfluxes(s,p,proxyrep,mu,sd,U,co);
+  Qtilde = Q + v*d';                           % Schur stuff...
+  %if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
+  QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
+  
+  % *** todo: insert rep correction of 5/8/16, write up while doing it!
+  
+  taut = gmres(@(x) A*x - Bm*(QtdagC*x), -Bm*Qtdagg, [], 1e-14, Ns(i));
+  %taut = linsolve(A - Bm*QtdagC,-Bm*Qtdagg,lso);  % direct Schur soln
+  %cond(A - Bm*QtdagC)  % 8.4
+  xit = Qtdagg - QtdagC*taut; cot = [taut;xit];  % build full soln vecto
   rest(i) = norm(E*cot - rhs);      % residual back in ELS
   ust(:,i) = evalsol(s,p,proxyrep,mu,sd,U,z,cot);
-  Jst(:,i) = evalfluxes(s,p,proxyrep,U,mu,sd,cot);  % Schur flux
-  %rhsk = knownrhs(src,s,U);     % set up RHS for known 3x3 unit source soln...
-  %cok = linsolve(E,rhsk,lso);   % coeffs for approx to known soln
-  %%norm(E*cok - rhsk)    % resid for known soln - plot?
-  %uk = evalsol(s,p,proxyrep,U,z,cok);       % eval this approx
+  Jst(:,i) = evalfluxes(s,p,proxyrep,mu,sd,U,cot);  % Schur flux
+  rhsk = knownrhs(src,fsrc,mu,s,U);  % RHS for known 3x3 stokeslet soln...
+  cok = linsolve(E,rhsk,lso);   % coeffs for approx to known soln
+  %norm(E*cok - rhsk)    % resid for known soln - plot?
+  uk = evalsol(s,p,proxyrep,mu,sd,U,z,cok);       % eval this approx
   %es(i) = uk(2)-uk(1)-(uek(2)-uek(1));      % err vs known diff btw test pts
 end
-%fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
+fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
 
-% *** fix so only one cmpt u1...
-rest'
-return
-[us(1,:)',ust(1,:)',us(1,:)'-ust(1,:)']  % 1st cmpt
+disp('convergence of u1 then J1:')
+[us(1,:)',ust(1,:)',us(1,:)'-ust(1,:)']  % 1st cmpt:  u is ELS, ut is Schur
 [Js(1,:)',Jst(1,:)',Js(1,:)'-Jst(1,:)']
-[Js(2,:)',Jst(2,:)',Js(2,:)'-Jst(2,:)']
+%[Js(2,:)',Jst(2,:)',Js(2,:)'-Jst(2,:)']
 figure; %semilogy(Ns,res,'ro-');  % why is resid always around 1e-14?
-semilogy(Ns,abs(us-us(i)),'+-'); hold on;
+uerr = sqrt(sum((us-repmat(us(:,end),[1 numel(Ns)])).^2,1)); % 2-norm u errs
+semilogy(Ns,uerr,'+-'); hold on;
 plot(Ns,abs(Js(1,:)-Js(1,end)),'go-');
+uerrt = sqrt(sum((ust-repmat(ust(:,end),[1 numel(Ns)])).^2,1)); % 2-norm ut errs
 plot(Ns,abs(ust-ust(i)),'+--');
 plot(Ns,abs(Jst(1,:)-Jst(1,end)),'go--');
-%plot(Ns,rest,'rd-');
 plot(Ns,abs(es),'ks-');
+plot(Ns,rest,'rd-');
 %legend('u convergence','J_1 convergence','u err vs known');
 legend('u conv ELS','J_1 conv ELS','u conv Schur','J_1 conv Schur','u err vs known');
 xlabel('N'); text(40,1e-4,'(c)');
@@ -124,6 +126,10 @@ axis([Ns(1) Ns(end-1) 1e-15 1e-3]);
 end
 
 %keyboard
+%%%%% *************
+
+
+
 
 if 0, Ms = 10:5:120;    % -------------------- M convergence, incl Schur
 N = 100; s = wormshape(a,b,N);  % fixed
@@ -188,7 +194,7 @@ else
   p = p + sd(1)*pS + sd(2)*pD;
 end
 
-function J = evalfluxes(s,p,proxyrep,U,mu,sd,co)
+function J = evalfluxes(s,p,proxyrep,mu,sd,U,co)
 % inputs as in evalsol. Uses Gary-inspired bdry of 3x3 block far-field method
 if U.nei~=1, warning('U.neu must equal 1'); end
 w = U.L.w; if norm(w-U.B.w)>1e-14, error('L and B must have same weights'); end
@@ -208,7 +214,7 @@ u = v(1:12*m).*real(t.nx) + v(12*m+1:end).*imag(t.nx);   % v.n, as col vec
 amts = [0 0 0 3 3 3 -1 -2 -3 1 2 3; -1 -2 -3 1 2 3 0 0 0 3 3 3];  % wall wgts
 J = J + sum(repmat(u',[2 1]).*kron(amts,w),2);   % weight each wall
 
-function [E A B C Q] = ELSmatrix(s,p,proxyrep,U,mu,sd)
+function [E A B C Q] = ELSmatrix(s,p,proxyrep,mu,sd,U)
 % builds matrix blocks for Stokes extended linear system, S+D rep w/ Kress self
 N = numel(s.x);
 A = sd(1)*srcsum(@StoSLP,U.trlist,[],s,s,mu) + sd(2)*(eye(2*N)/2 + srcsum(@StoDLP,U.trlist,[],s,s,mu));   % notes: DLP gives exterior JR term; srcsum self is ok
@@ -237,18 +243,17 @@ trlist = (-n:n)*e1 - n*e2;
 C = sd(1)*[CRS-CLS; TRS-TLS; CTS-CBS; TTS-TBS]  +...
     sd(2)*[CRD-CLD; TRD-TLD; CTD-CBD; TTD-TBD];
 
-function u = knownsol(U,z,src,mu)
-% z = targets. U = unit cell struct, src = 1-pt struct.  output vel only
-u = srcsum(@StoSLP, U.trlist, [], struct('x',z), src, mu);   % 1-col mat fill
+function u = knownsol(U,z,src,fsrc,mu)
+% z = targets. U = unit cell struct, src = 1-pt struct, fsrc = source force vec.
+% output vel only
+u = srcsum(@StoSLP, U.trlist, [], struct('x',z), src, mu, fsrc);  % dens=fsrc
 
-function rhs = knownrhs(src,s,U)
+function rhs = knownrhs(src,fsrc,mu,s,U)
 % src is a 1-pt struct with x, w, nx; it will be summed over 3x3, unit mag.
-% s is usual target curve (needs normals).
+% s is usual target curve (needs normals). fsrc = source force vec.
 % The rhs will always be consistent, with f and g nonconstant. Matches knownsol.
-
-% *** FIX FOR STO
-[~,f] = srcsum(@LapDLP,U.trlist,[],s,src);    % direct Neu data sum to curve
-g = Cblock(src,U,@LapDLP);
+f = srcsum(@StoSLP,U.trlist,[],s,src,mu, fsrc);  % direct vel data sum to curve
+g = Cblock(src,U,mu,[1 0]) * fsrc;               % sd sets SLP only
 rhs = [f;g];
 
 function [zz ii] = extgrid(gx,gy,s,U)  % grid points and indices outside Omegas

@@ -88,7 +88,7 @@ u = real(v); info.imv = imag(v);
 %%%%%%%%%%%%%%%%%%%
 function test_LapDLP_closeglobal  % check far-field matches the native rule
 verb = 0;       % to visualize
-s = wobblycurve(0.3,5,200); if verb, figure;showsegment(s); end
+s = wobblycurve(1,0.3,5,200); if verb, figure;showsegment(s); end
 tau = 0.7+sin(3*s.t);                    % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
 for side = 'ie'
