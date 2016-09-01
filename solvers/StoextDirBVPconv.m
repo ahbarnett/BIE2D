@@ -6,9 +6,12 @@
 %
 % Barnett 7/7/16, modifed from StointDirBVP.m
 %
-% References: see Sec 2.3 of
+% References: for the basics of the BIE see Sec 2.3 of
 %  [HW]    "Boundary Integral Equations", G. C. Hsiao and W. L. Wendland
 %          (Springer, 2008).
+% For the completed D+S formulation see p. 128 of
+%  [Poz]   "Boundary Integral and Singularity Methods for Linearized Viscous
+%          Flow", C. Pozrikidis (Cambridge Universoty Press, 1992).
 
 clear;
 mu = 0.7;              % viscosity

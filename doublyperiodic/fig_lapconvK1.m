@@ -3,6 +3,7 @@ function fig_lapconvK1
 % All dense matrices, native quadr for solve, close eval for plot.
 % Barnett, cleaned up from perineu2dnei1.m 5/11/16.
 % Small codes broken out 6/12/16 (no longer self-contained); BIE2D 6/29/16
+% X,y,r notation & non-random r, 8/17/16. 5x5 known src 8/23/16.
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
@@ -17,13 +18,13 @@ U.e1 = 1; U.e2 = 1i;     % unit cell lattice vectors and src direct sum list...
 U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:); % 3x3
 m = 22; [U L R B T] = doublywalls(U,m);
 proxyrep = @LapSLP;      % sets proxy pt type via a kernel function call
-Rp = 1.4; M = 80;        % proxy params
+Rp = 1.4; M = 70;        % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p); % proxy pts
 
-a = 0.7; b = 0.15; % worm params, spills horizontally out of any unit cell
-uexdiff = 0.11101745840635; flux1ex = 0.5568613934999;  % a=.7,b=.15.  1e-12
+a = 0.7; b = 0.15;   % worm params, spills horizontally out of any unit cell
+uexdiff = 0.11101745840635; flux1ex = 0.5568613934999; % 1e-12 err, a=.7,b=.15
 % known soln dipole location: must be deep inside Omega (careful)
-src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i;
+src.x = 0.42+.23i; src.w = 1; src.nx = 1+0i; src.nei = 5;   % creates 5x5 grid
 
 % -------------------------- single soln and plot
 N = 140; s = wormcurve(a,b,N);
@@ -41,7 +42,7 @@ u = evalsol(s,p,proxyrep,U,z,co);
 fprintf('u diff btw two pts = %.16g  \t(est abs err: %.3g)\n',u(2)-u(1), abs(u(2)-u(1)-uexdiff))
 tic; J = evalfluxes(s,p,proxyrep,U,co); toc
 fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),J(1)-flux1ex)
-if 1   % figure
+if 0   % figure
   utyp = mean(u);
   nx = 300; gx = ((1:nx)/nx*2-1)*Rp;    % eval grid
   gy = gx; [xx yy] = meshgrid(gx,gy); zz = (xx(:)+1i*yy(:)); clear xx yy;
@@ -64,8 +65,9 @@ end
 if 1, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan*Ns; res = us; rest = us; ust = us; es = us;
 Js = nan(2,numel(Ns)); Jst = Js;
-uek = knownsol(U,z,src); % known dipole 3x3 grid soln, fixed, ignores jumps
-v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w']; d = ones(M,1)/M; % Sifuentes vectors
+uek = knownsol(U,z,src); % known dipole grid soln, fixed, ignores jumps
+%v = [0*L.w';1+0*L.w';0*B.w';1+0*B.w'];   % obsolete
+r = ones(M,1)/M;              % scaled Sifuentes 1s-vector
 for i=1:numel(Ns)
   s = wormcurve(a,b,Ns(i));
   g = [jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x]; rhs = [0*s.x; g]; %driving
@@ -75,14 +77,19 @@ for i=1:numel(Ns)
   u = evalsol(s,p,proxyrep,U,z,co);
   us(i) = u(2)-u(1);
   Js(:,i) = evalfluxes(s,p,proxyrep,U,co);
-  Qtilde = Q + v*d';  % Schur stuff... (soln u given suffix "t")
+  H = ones(Ns(i),1); v = C*H;   % Gary's non-const v, overwrites above
+  Qtilde = Q + v*r';  % Schur stuff... (soln u given suffix "t")
   %if i==1, norm(Q), norm(v*d'), svd(Q), svd(Qtilde), end   % sim size norms?
-  QtdagC = linsolve(Qtilde,C,lso); Qtdagg = linsolve(Qtilde,g,lso);
-  %Qtdag = pinv(Qtilde); QtdagC = Qtdag*C; Qtdagg = Qtdag*g;  % loses 7 digits
-  taut = gmres(@(x) A*x - Bm*(QtdagC*x), -Bm*Qtdagg, [], 1e-14, Ns(i));
-  %taut = linsolve(A - Bm*QtdagC,-Bm*Qtdagg,lso);  % direct soln
-  %cond(A - Bm*QtdagC)  % 8.4
-  xit = Qtdagg - QtdagC*taut; cot = [taut;xit];  % build full soln vector
+  X = linsolve(Qtilde,C,lso); y = linsolve(Qtilde,g,lso);
+  %Qtdag = pinv(Qtilde); X = Qtdag*C; y = Qtdag*g;  % bad, loses 7 digits
+  %Bm = Bm + (A*H)*d';  % Gary version of my B corr; makes nullity(Aper)=1 again
+  taut = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-14, Ns(i));
+  %taut = linsolve(A - Bm*X,-Bm*y,lso);  % direct soln
+  %cond(A - Bm*X)  % 8.3
+  xit = y - X*taut;
+  % note no taut correction for Gary since d'*xit = 0...
+  cot = [taut;xit];  % build full soln vector
+  %norm(r'*xit)   % check what we know from theory, should be zero
   rest(i) = norm(E*cot - rhs);      % residual back in ELS
   u = evalsol(s,p,proxyrep,U,z,cot);
   ust(i) = u(2)-u(1);
@@ -93,7 +100,8 @@ for i=1:numel(Ns)
   uk = evalsol(s,p,proxyrep,U,z,cok);       % eval this approx
   es(i) = uk(2)-uk(1)-(uek(2)-uek(1));      % err vs known diff btw test pts
 end
-fprintf('norm Qt\\C  = %.3g\n',norm(Qtilde\C))
+% [U S V] = svd(E); V(:,end)   % show that Nul E = [0;stuff], ie tau unique
+fprintf('norm X=Qt\\C is %.3g\n',norm(X))
 disp('pot diff N-convergence for ELS, Schur, their diff:')
 [us',ust',us'-ust']
 disp('flux J1 N-convergence for ELS, Schur, their diff:')
@@ -115,9 +123,7 @@ axis([Ns(1) Ns(end-1) 1e-15 1e-3]);
 %set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapconvK1.eps
 end
 
-%keyboard
-
-if 1, Ms = 10:5:120;    % -------------------- M convergence (not incl Schur)
+if 0, Ms = 10:5:120;    % -------------------- M convergence (not incl Schur)
 N = 100; s = wormcurve(a,b,N);  % fixed
 rhs = [0*s.x; jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x];   % driving
 Js = nan(2,numel(Ms)); nrms = nan*Ms;
@@ -207,14 +213,17 @@ nei = U.nei; N = numel(s.x); m = numel(U.L.x);
 C = [CR-CL; CRn-CLn; CT-CB; CTn-CBn];
 
 function u = knownsol(U,z,src)
-% z = targets. U = unit cell struct, src = 1-pt struct.  outputs potential only
-% Note use of dipole (monopole would work, but dipole closer to application)
-u = srcsum(@LapDLP, U.trlist, [], struct('x',z), src);  % pot due to DLP
+% z = targets. U = unit cell struct, src = 1-pt struct, with src.nei for grid.
+% Potential only. Note use of dipole (monopole ok, but dipole closer to appl)
+[tx ty] = meshgrid(-src.nei:src.nei); trk = tx(:)+1i*ty(:);     % src grid
+u = srcsum(@LapDLP, trk, [], struct('x',z), src);  % pot due to DLP
 
 function rhs = knownrhs(src,s,U)
-% src is a 1-pt struct with x, w, nx; it will be summed over 3x3, unit mag.
-% s is usual target curve (needs normals).
+% src is a 1-pt struct with x, w, nx; it will be summed over (2*src.nei+1)^2
+% grid, w/ unit mag.  s is usual target curve (needs normals).
 % The rhs will always be consistent, with f and g nonconstant. Matches knownsol.
-[~,f] = srcsum(@LapDLP,U.trlist,[],s,src);    % direct Neu data sum to curve
-g = Cblock(src,U,@LapDLP);
+[tx ty] = meshgrid(-src.nei:src.nei); trk = tx(:)+1i*ty(:);   % src grid
+[~,f] = srcsum(@LapDLP,trk,[],s,src);    % direct Neu data sum to curve
+U.nei = src.nei;                  % sets up C correct for src grid
+g = Cblock(src,U,@LapDLP);  % only works if u_ex = (2*U.neu+1)^2 src grid.
 rhs = [f;g];

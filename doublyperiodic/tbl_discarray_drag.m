@@ -12,36 +12,53 @@ lso.RECT = true;  % linsolve opts, forces QR even when square, more stable
 mu = 0.8;   % overall viscosity const for Stokes PDE, can be anything positive
 sd = [1 1];  % layer potential representation prefactors for SLP & DLP resp.
 jumps = [1 0]; % pressure jumps across R-L and T-B
+schur = 1;       % 0 for rect ELS direct solve; 1 for Schur iterative solve
 
 U.e1 = 1; U.e2 = 1i;     % unit cell; nei=1 for 3x3 scheme
 U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:);
 m = 22; [U L R B T] = doublywalls(U,m);
 proxyrep = @StoSLP;      % sets proxy pt type via a kernel function call
-Rp = 1.4; M = 80; % 80;       % proxy params
+Rp = 1.4; M = 80;       % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
 cs = [0.05 0.1:0.1:0.7 0.75 0.76 0.77];  % vol fracs, from G-K 04 paper
-Ns = [60*ones(1,5) 100 150 350 800 1200 2000];
+Ns = [60*ones(1,5) 100 150 350 800 1200 2400];
 close = 0;   % if 0, plain Nystrom for Aelse; if 1, close-eval (slow 14s N=200!)
 %cs = 0.75; Ns = 150; close = 1; s.a = 0;   % testing, v slow & only 1e-9 acc!
-cs = kron(cs,[1 1]); Ns = kron(Ns,[1 1]) + kron(1+0*Ns,[0 50]); % check all conv
+cs=kron(cs,[1 1]); Ns = kron(Ns,[1 1]) + kron(1+0*Ns,[0 400]); % check all conv
 ts = 0*cs; Dcalcs = 0*cs;               % what we compute
+% "ones vectors" for schur:
+R = [[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(p.x);imag(p.x)]]/M;
 for i=1:numel(cs)            % -------------------- loop over filling fractions
   N = Ns(i); r0 = sqrt(cs(i)/pi); h=2*pi*r0/N; delta=(1-2*r0)/h;  % dist
   s = wobblycurve(r0,0,1,N);
   % obstacle no-slip & pressure-drop driving...
-  rhs = [zeros(2*N,1); zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x];
+  g = [zeros(2*m,1);jumps(1)+0*L.x;zeros(4*m,1);jumps(2)+0*B.x]; % pres driving
+  rhs = [zeros(2*N,1); g];
   tic
-  E = ELSmatrix(s,p,proxyrep,mu,sd,U,close);          % fill (w/ close option)
-  co = linsolve(E,rhs,lso);                           % direct bkw stable solve
+  [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,mu,sd,U,close); % fill (w/ close option)
+  if ~schur
+    co = linsolve(E,rhs,lso);        % ..... direct bkw stable solve of ELS
+    sig = co(1:2*N); psi = co(N+1:end);
+  else                               % ..... schur, square well-cond solve
+    H = [ones(1,N) zeros(1,N);zeros(1,N) ones(1,N);real(s.nx)' imag(s.nx)']';
+    Qtilde = Q + (C*H)*R';               % Gary version of Schur
+    X = linsolve(Qtilde,C,lso); y = linsolve(Qtilde,g,lso);
+    Bm = Bm + (A*H(:,1:2))*R(:,1:2)';   % Alex 
+    [tauhat,flag,relres,iter,resvec] = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-14, Ns(i));  % note iter has 2 elements, 2nd is what want
+    %if i==21, S = svd(A - Bm*X), keyboard, end
+    xi = y - X*tauhat;
+    tau = tauhat + H*(R'*xi);           % Gary correction
+    co = [tau;xi];  % build full soln vector
+  end
   ts(i) = toc;
   %fprintf('resid norm = %.3g\n',norm(E*co - rhs))
-  sig = co(1:2*N); psi = co(N+1:end);
   %fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
   J = evalfluxes(s,p,proxyrep,mu,sd,U,co);
   %fprintf('fluxes (%.16g,%.16g)\n',J(1),J(2))
   Dcalcs(i) = 1/(J(1)*mu);                % dimless drag;  note force = 1
-  fprintf('c=%g\tr=%.3g\tN=%d (%.2gh)\t%.3gs\tD = %.14e\n',cs(i),r0,N,delta,ts(i),Dcalcs(i))
+  fprintf('c=%g r=%.3g\tN=%d (%.2gh)\t%.3gs\t%d its %.3g\tD=%.14e\n',cs(i),r0,N,delta,ts(i),iter(2),resvec(end),Dcalcs(i))
+  if mod(i,2)==0, fprintf('\t\t est rel err = %.3g\n',abs((Dcalcs(i)-Dcalcs(i-1))/Dcalcs(i))), end
 end                         % ---------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -18,7 +18,7 @@ nt = 100; t.x = rand(nt,1)-0.5 + 1i*(rand(nt,1)-0.5);  % rand test pts in UC
 %[xx yy] = meshgrid(linspace(-.5,.5,10)); t.x = xx(:)+1i*yy(:); % tp grid in UC
 Atest = proxyrep(t,p,mu);   % evaluation matrix, only changes when M does
 
-m = 20; [U L R B T] = doublywalls(U,m);
+m = 22; [U L R B T] = doublywalls(U,m);
 g = discrep(L,R,B,T,@(t) vTknown(t,z0,f0,mu));
 w = [0*L.w 0*L.w L.w 0*L.w 0*B.w 0*B.w 0*B.w B.w]';   % 8m-cpt left null-vector?
 nsings = 6;           % how many singular values to keep and show
@@ -46,7 +46,7 @@ rB = sqrt(0.5); semilogy(Ms,0.05*(rho/rB).^(-Ms/2),'r--');  % conv rate!
 xlabel('M');
 axis([min(Ms) max(Ms) 1e-17 max(nrms)]);
 text(15,max(nrms)/10,'(c)','fontsize',12);
-text(90,max(nrms)/10,'$m=20$','interpreter','latex','fontsize',12);
+text(90,max(nrms)/10,sprintf('$m=%d$',m),'interpreter','latex','fontsize',12);
 set(gcf,'paperposition',[0 0 3 3]);
 set(gca,'ytickmode','manual', 'ytick',[1e-15 1e-10 1e-5 1 1e5]);
 %print -depsc2 figs/stoQMconv.eps

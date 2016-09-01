@@ -36,12 +36,12 @@ end
 figure; semilogy(ms,verrs,'+-'); xlabel('m'); ylabel('max abs error in v');
 axis([min(ms) max(ms) 1e-16 1]);
 text(4,1e-1,'(a)','fontsize',12);
-text(15,1e-1,'$M=100$','interpreter','latex','fontsize',12);
+text(15,1e-1,sprintf('$M=%d$',M),'interpreter','latex','fontsize',12);
 set(gcf,'paperposition',[0 0 3 3]);
 %print -depsc2 figs/lapQmconv.eps
 
-m = 20; [U L R B T] = doublywalls(U,m); g = discrep(L,R,B,T,ve,vex,vey); % fix
-w = [0*L.w L.w 0*B.w B.w]';   % supposed left null-vector
+m = 22; [U L R B T] = doublywalls(U,m); g = discrep(L,R,B,T,ve,vex,vey); % fix
+w = [0*L.w L.w 0*B.w B.w]';   % supposed left null-vector (note v will not be)
 nsings = 6;           % how many singular values to keep and show
 Ms = 10:5:120;
 verrs = nan*Ms'; sings = nan(numel(Ms),nsings); nrms = verrs; nwtqs = verrs;
@@ -68,7 +68,7 @@ xlabel('M');
 %ylabel('max abs error in v');
 axis([min(Ms) max(Ms) 1e-17 max(nrms)]);
 text(15,max(nrms)/10,'(b)','fontsize',12);
-text(90,max(nrms)/10,'$m=20$','interpreter','latex','fontsize',12);
+text(90,max(nrms)/10,sprintf('$m=%d$',m),'interpreter','latex','fontsize',12);
 set(gcf,'paperposition',[0 0 3 3]);
 set(gca,'ytickmode','manual', 'ytick',[1e-15 1e-10 1e-5 1 1e5]);
 %print -depsc2 figs/lapQMconv.eps
