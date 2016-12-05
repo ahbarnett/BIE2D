@@ -4,7 +4,7 @@ This set of codes solves boundary value problems for piecewise constant coeffici
 
 Main author: Alex Barnett
 
-Version: 20160629
+Version: 20161205
 
 Based on work from 2008-2016 including subsuming the integral-equation parts of [MPSpack](https://github.com/ahbarnett/mpspack), all of [LSC2D](http://math.dartmouth.edu/~ahb/software/lsc2d.tgz), and my [BIE tutorial](https://math.dartmouth.edu/~fastdirect/notes/quadrtut.zip).
 
@@ -31,6 +31,7 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 `utils`   : general numerical and plot utilities  
 `test`    : test codes (other than built-in self-tests), figure-generating codes  
 `solvers` : 2D BVP solver example codes, also serve to test kernels  
+`solvers/closetouchingexpts` : close-to-touching curve experiments  
 `singlyperiodic` : codes for Laplace, Stokes flow in periodic pipes, possibly with vesicles (to do)  
 `doublyperiodic` : codes for flow (Laplace, Stokes) in doubly-periodic geometries, computation of effective permeability (in progress)  
 
@@ -72,3 +73,4 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * StoDLP_cg self-test & pressure close, StointvelBVP all pres plots added
 * finish bring over doublyperiodic, pres figs
 * srcsum2 for speed (targ sum not src, better for close eval)
+* initial close-touching expts
