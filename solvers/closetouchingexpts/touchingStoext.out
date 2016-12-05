@@ -1,0 +1,36 @@
+>> touchingStoext
+gmres converged at iteration 31 to a solution with relative residual 4.5e-13.
+	N=50	u @ test pt =(3.562369695797714,-4.832255263838056)
+gmres converged at iteration 40 to a solution with relative residual 9.9e-13.
+	N=100	u @ test pt =(3.562347418875883,-4.832225596980046)
+gmres converged at iteration 51 to a solution with relative residual 8.3e-13.
+	N=150	u @ test pt =(3.562347031654715,-4.832225081314488)
+gmres converged at iteration 58 to a solution with relative residual 5.5e-13.
+	N=200	u @ test pt =(3.562346995213688,-4.832225032784343)
+gmres converged at iteration 67 to a solution with relative residual 8e-13.
+	N=250	u @ test pt =(3.56234698835743,-4.832225023656747)
+gmres converged at iteration 74 to a solution with relative residual 9.6e-13.
+	N=300	u @ test pt =(3.562346986495782,-4.832225021173024)
+gmres converged at iteration 91 to a solution with relative residual 9.2e-13.
+	N=350	u @ test pt =(3.562346985853874,-4.832225020319018)
+errs =
+  Columns 1 through 3
+      3.78207878428208e-05      7.21142150842949e-07      7.62768928866991e-08
+  Columns 4 through 6
+       1.5588151219311e-08      4.17231671947814e-09      1.06834964334436e-09
+  Column 7
+                         0
+Elapsed time is 2.090256 seconds.
+>> touchingStoext
+gmres converged at iteration 91 to a solution with relative residual 9.2e-13.
+	N=350	u @ test pt =(3.562346985853874,-4.832225020319018)
+gmres converged at iteration 103 to a solution with relative residual 9.9e-13.
+	N=400	u @ test pt =(3.56234698559175,-4.832225019970148)
+gmres converged at iteration 113 to a solution with relative residual 9.2e-13.
+	N=450	u @ test pt =(3.562346985471661,-4.832225019812485)
+errs =
+      6.34557065743225e-10      1.98189175872295e-10                         0
+
+Shows continual growth of #iters with N as more digits are sought.
+This is with no precond, but closeeval quadrs.
+And ep=1e-6.

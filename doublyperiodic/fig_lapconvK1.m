@@ -62,7 +62,7 @@ if 0   % figure
   %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/lapsolK1.eps
 end
 
-if 1, Ns = 30:10:230;   % ------------------------  N-convergence
+if 0, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan*Ns; res = us; rest = us; ust = us; es = us;
 Js = nan(2,numel(Ns)); Jst = Js;
 uek = knownsol(U,z,src); % known dipole grid soln, fixed, ignores jumps
@@ -123,7 +123,7 @@ axis([Ns(1) Ns(end-1) 1e-15 1e-3]);
 %set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapconvK1.eps
 end
 
-if 0, Ms = 10:5:120;    % -------------------- M convergence (not incl Schur)
+if 1, Ms = 10:5:120;    % -------------------- M convergence (not incl Schur)
 N = 100; s = wormcurve(a,b,N);  % fixed
 rhs = [0*s.x; jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x];   % driving
 Js = nan(2,numel(Ms)); nrms = nan*Ms;
@@ -140,13 +140,15 @@ end
 disp('flux J1 M-convergence for ELS:')
 Js(1,:)'
 figure; semilogy(Ms,abs(Js(1,:)-Js(1,end)),'b+-'); hold on;
-semilogy(Ms,sings(:,2:end),'-','color',.5*[1 1 1]);
+h = load('/home/alex/physics/shravan/dpls/Fig22eData.mat');  % K=1e2 M-conv
+plot(h.M,abs(h.J-h.J(end)),'bs-');
 semilogy(Ms,nrms,'b.-');
-% *** TODO: bring in K=1e3 M-conv data and add to plot as squares
+semilogy(Ms,sings(:,2:end),'-','color',.5*[1 1 1]);
+legend('J_1 conv, Ex.1', 'J_1 conv, Ex.2','soln norm, Ex.1','sing vals, Ex.1','location','east');
 text(15,max(nrms)/10,'(e)');
-text(60,max(nrms)/10,sprintf('$N=%d,   m=%d$',N,m),'interpreter','latex');
+%text(60,max(nrms)/10,sprintf('$N=%d,   m=%d$',N,m),'interpreter','latex');
 xlabel('M'); axis([Ms(1) Ms(end-1) 1e-17 max(nrms)]);
-%set(gcf,'paperposition',[0 0 3 3]); print -depsc2 figs/lapMconv.eps
+set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapMconv.eps
 end
 
 if 0 % --------- old Schur tests warm-up (see above for their convergence)
