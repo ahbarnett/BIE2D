@@ -29,6 +29,7 @@ function [A B C] = srcsum2(kernel, trlist, phlist, t, s, varargin)
 % Also see: SRCSUM
 
 % Barnett 6/30/16 when realized close eval prefers more targs but single src.
+% 9/28/17 fixed tt.nx omission.
 
 if nargin==0, test_srcsum2; return; end
 
@@ -36,7 +37,7 @@ if isempty(phlist), phlist = 0*trlist+1.0; end
 M = numel(t.x); n = numel(trlist);
 tt.x = [];                                 % will store all targets with copies
 for i=1:n, tt.x = [tt.x; t.x - trlist(i)]; end  % all transl trgs, by invariance
-if isfield(tt,'nx'), tt.nx = repmat(t.nx,[n 1]); end  % all trg normals
+if isfield(t,'nx'), tt.nx = repmat(t.nx,[n 1]); end  % all trg normals
 % (we assumed x and nx are only fields relevant for targets)
 if nargout==1
   At = kernel(tt,s,varargin{:});

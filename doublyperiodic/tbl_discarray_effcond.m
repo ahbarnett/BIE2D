@@ -3,7 +3,7 @@ function tbl_discarray_effcond
 % Table 2 of J. Helsing, Proc Roy Lond Soc A, 1994.
 % Laplace BVP, single inclusion (K=1), native quad for matrix fill, ELS.
 % Adapted from fig_discarray_drag.
-% Barnett 9/27/17
+% Barnett 9/27/17. Fixed close and reparam 9/28/17
 
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
@@ -20,19 +20,27 @@ proxyrep = @LapSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.4; M = 80;       % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
-%cs = 2; sigs = 10; Ns = 200;   % geom and conductivity params
-%cs = 5; sigs = 10; Ns = 900;   % geom and conductivity params
-cs = 10; sigs = 10; Ns = 3500;   % geom and conductivity params
+%cs = 2; sigs = 10; Ns = 120; close=0;  % geom and conductivity params
+%cs = 10; sigs = 10; Ns = 240; close=1;  % geom and conductivity params
+%cs = 5; sigs = 10; Ns = 900; close=0;  % geom and conductivity params
+%cs = 10; sigs = 10; Ns = 800; reparam=1; close=0;  % geom, conductivity params
+cs = 100; sigs = 100; Ns = 200; reparam=1; close=1;  % geom, conductivity params
+%cs = 1000; sigs = 1000; Ns = 240; reparam=1; close=1;  % geom, conductivity params
+%cs = 10; sigs = 10; Ns = 200; close=1;  % geom and conductivity params, fails
+% reparam: 0: plain trap rule; 1 reparam bunching near touching pts
+% close: if 0, plain Nystrom for Aelse; if 1, close-eval (slow)
 
-close = 0;   % if 0, plain Nystrom for Aelse; if 1, close-eval (slow 14s N=200!)
-chkconv = 1;    % if true, check each ans vs bumped-up N
+chkconv = 0;    % if true, check each ans vs bumped-up N
 if chkconv, cs=kron(cs,[1 1]); sigs=kron(sigs,[1 1]); Ns = kron(Ns,[1 1]) + kron(1+0*Ns,[0 400]); end
 ts = 0*cs; effconds = 0*cs;               % what we compute
 for i=1:numel(cs)            % -------------------- loop over filling fractions
-  N = Ns(i); r0 = 0.5*sqrt(1-1/cs(i)^2); h=2*pi*r0/N;
-  delta=(1-2*r0)/h;  % h-scaled closeness measure
-  lam = (sigs(i)-1)/(sigs(i)+1);   % lambda
-  s = wobblycurve(r0,0,1,N);
+  N = Ns(i); r0 = 0.5*sqrt(1-1/cs(i)^2);   % disc radius
+  h=2*pi*r0/N; delta=(1-2*r0)/h;  % quadr spacing h; h-scaled closeness measure
+  lam = (sigs(i)-1)/(sigs(i)+1);   % lambda contrast param
+  s = wobblycurve(r0,0,1,N); s.a = 0;  % interior pt needed for close only
+  if reparam
+    be = .7*log(cs(i))/log(2); s = reparam_bunched(s,be); s.cur = (1/r0)*ones(N,1);
+  end, %figure; showsegment(s);  % check bunching
   g = [jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x]; rhs = [0*s.x; g]; %driving
   tic
   [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,U,lam,close); % fill (w/ close option)
@@ -44,7 +52,7 @@ for i=1:numel(cs)            % -------------------- loop over filling fractions
     R = ones(M,1)/M; H = ones(N,1);  % 1s vectors
     Qtilde = Q + (C*H)*R';               % Gary version of Schur
     X = linsolve(Qtilde,C,lso); y = linsolve(Qtilde,g,lso);
-    [tau,flag,relres,iter,resvec] = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-14, N);  % note iter has 2 elements: 2nd is what want
+    [tau,flag,relres,iter,resvec] = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-15, N);  % note iter has 2 elements: 2nd is what want
     xi = y - X*tau;
     co = [tau;xi];  % build full soln vector
   end
@@ -54,9 +62,9 @@ for i=1:numel(cs)            % -------------------- loop over filling fractions
   J = evalfluxes(s,p,proxyrep,U,co);
   %fprintf('fluxes (%.16g,%.16g)\n',J(1),J(2))
   effconds(i) = J(1);
-  npan0 = 4; effcondse(i) = helsingeffcond(cs(i),sigs(i),npan0,verbhel); % reference soln
+  effcondse(i) = helsingeffcond(cs(i),sigs(i),[],verbhel); % reference soln
   fprintf('c=%g r=%.3g\tN=%d (%.2gh)\t%.3gs\t%d its %.3g\tkap=%.14e\n',cs(i),r0,N,delta,ts(i),iter(2),resvec(end),effconds(i))
-  fprintf('\t\t\t\trel err from reference = %.3g\n',abs((effconds(i)-effcondse(i))/effcondse(i)))
+  fprintf('\t\t\t\trel err from helsing ref = %.3g\n',abs((effconds(i)-effcondse(i))/effcondse(i)))
   if chkconv & mod(i,2)==0, fprintf('\t\t\t\test rel err = %.3g\n',abs((effconds(i)-effconds(i-1))/effconds(i))), end
 end                         % ---------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -92,13 +100,14 @@ J = J + sum(repmat(un',[2 1]).*kron(amts,w),2);   % weight each wall
 function [E A B C Q] = ELSmatrix(s,p,proxyrep,U,lam,close)
 % builds matrix blocks for extended linear system, SLP rep on curve, w/ close
 % as option, and lambda conductivity param.
-N = numel(s.x);
+N = numel(s.x)
 if ~close          % plain Nystrom for nei interactions...
   [~,A] = srcsum(@LapSLP, U.trlist,[], s,s);   % directly summed self-int matrix
 else
-  A = LapSLP(s,s);
+  [~,A] = LapSLP(s,s);
   notself = U.trlist(U.trlist~=0);
-  A = A + srcsum2(@LapSLP, notself,[],s,s, [],'e'); % dens=[], 'e' exterior
+  [~,Ans] = srcsum2(@LapSLP_closeglobal, notself,[],s,s, [],'e'); % dens=[], 'e' exterior
+  A = A + Ans;
 end
 A = A + eye(N)/(2*lam);        % lambda-modified Neumann exterior jump relation
 [~,B] = proxyrep(s,p);         % Neu data from proxies

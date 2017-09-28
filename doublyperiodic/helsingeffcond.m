@@ -10,19 +10,21 @@
 % Inputs:
 %  c - radius parameter (inverse dist to singularity): r = sqrt(1-1/c^2)/2.
 %  sigma2 - conductivity sigma inside disc (exterior sigma is unity).
-%  npan0 - number of panels per 1/4 circle, the convergence param
-%  verb (optional) - 
+%  npan0 (optional) - number of panels per 1/4 circle; default 4
+%                     (Helsing checks that already converged by this value).
+%  verb (optional) - 0:silent, 1:text output.
 % Output:
-%  effcond - effective conductivity. Uses same applied gradient as demo14b.
+%  effcond - effective conductivity. Uses same applied gradient as demo14b.m
 %
-% Barnett 9/27/17 simply wrapping Helsing's cool demo14b.m code of 5/19/17
-
+% Barnett 9/27/17
+% Simply wrapping & tweaking Helsing's cool demo14b.m code of 5/19/17
 
 % **************************************************************
 % *** Last changed 2017-05-19 by Johan Helsing                 *
 % *** Effective conductivity of doubly periodic array of disks *
 % **************************************************************
 
+if nargin<3 || isempty(npan0), npan0 = 4; end
 if nargin<4, verb = 0; end
   Ng=22;           % number of nodes on canonical interval (ie, pan order, ahb)
   [W,T]=gaussP(Ng);
@@ -56,7 +58,7 @@ if nargin<4, verb = 0; end
     izone(:,4)=(3*np0-2*Ng+1:3*np0+2*Ng)';
     for kk=1 %1:3       % just do one expt - hack
       panlen=rr(kk)*parlen;        % actual panel length on coarse mesh
-      nsub=ceil(log(panlen/d(kk))/log(2));  % Johan chose how many subdivisions
+      nsub=ceil(.5*log(panlen/d(kk))/log(2));  % Johan chose how many subdivisions based on d scale, but ahb halved it: density changes only on sqrt(d) scale.
       if nsub<1, nsub=1; end        % handle d being too large
       if verb, fprintf('nsub = %d\n',nsub), end
       [z,zp,zpp,w,wzp,np,zinter]=zinit(sinter,sinterdiff,T,W,rr(kk),npan);

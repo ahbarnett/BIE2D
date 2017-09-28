@@ -130,21 +130,25 @@ end % NB needs N=320 for 13 digits in Re, but 480 for Im part (why slower?)
 function test_LapSLP_closeglobal  % check far-field matches the native rule
 verb = 0;       % to visualize
 s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
-tau = 0.7+sin(3*s.t);                    % pick smooth density w/ nonzero mean
+tau = -0.7+exp(sin(3*s.t));              % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
 for side = 'ie'
   if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
   else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
   if verb, plot(t.x,'.'); end
+  tic
   [u un] = LapSLP(t,s,tau);    % eval given density cases...
   [uc unc] = LapSLP_closeglobal(t,s,tau,side);
   [uc uxc uyc] = LapSLP_closeglobal(t,s,tau,side);
   fprintf('Lap SLP density case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u-uc)), max(abs(un-unc)), max(abs(un - (uxc.*real(t.nx)+uyc.*imag(t.nx))))])
+  toc
+  tic
   [u un] = LapSLP(t,s);   % matrix cases....
   [uc unc] = LapSLP_closeglobal(t,s,[],side);
   [uc uxc uyc] = LapSLP_closeglobal(t,s,[],side);
   fprintf('matrix fill case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
+  toc
 end
 

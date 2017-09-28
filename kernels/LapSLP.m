@@ -46,7 +46,8 @@ function [A An] = LapSLPmat(t,s)
 % Barnett 6/12/16 from stuff since 2008; bsxfun speedups 6/28/16
 N = numel(s.x);
 d = bsxfun(@minus,t.x,s.x.');          % C-# displacements mat
-if sameseg(t,s)
+ss = sameseg(t,s);
+if ss
   A = -log(abs(d)) + circulant(0.5*log(4*sin(pi*(0:N-1)/N).^2));   % peri log
   A(diagind(A)) = -log(s.sp);                       % diagonal limit
   m = 1:N/2-1; Rjn = ifft([0 1./m 2/N 1./m(end:-1:1)])/2;  % Kress Rj(N/2)/4pi
@@ -57,7 +58,7 @@ else
 end
 if nargout==2                      % apply D^T (flips sign and src deriv)
   An = real(bsxfun(@rdivide,(1/2/pi)*(-t.nx),d));    % complex form of dipole
-  if sameseg(t,s)
+  if ss
     An(diagind(An)) = -s.cur*(1/4/pi);  % self? diagonal term for Laplace
   end
   An = bsxfun(@times, An, s.w(:)');  % quadr wei
