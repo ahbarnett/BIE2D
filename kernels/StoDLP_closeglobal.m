@@ -101,10 +101,10 @@ if nargout>1  % ----------- want pressure, do its extension (not in [lsc2c])
 end
 
 %%%%%%%%%%%%%%%%%%%%
-function test_StoDLP_closeglobal  % check far-field matches the native rule
-% adapted from Lap tests; same as DLP
+function test_StoDLP_closeglobal          % adapted from Lap tests
+fprintf('check Stokes DLP close-eval quadr match native rule in far field...\n')
 verb = 0;       % to visualize
-s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
+s = wobblycurve(1,0.3,5,280); s.a = mean(s.x); if verb,figure;showsegment(s);end
 mu = 0.9;       % viscosity (real, pos)
 tau = [0.7+sin(3*s.t); -0.4+cos(2*s.t)];  % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
@@ -113,13 +113,16 @@ for side = 'ie'
   if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
   else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
   if verb, plot(t.x,'.'); end
-  [u p] = StoDLP(t,s,mu,tau);    % eval given density cases...
-  [uc pc] = StoDLP_closeglobal(t,s,mu,tau,side);
-  fprintf('Sto SLP density case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  fprintf('\nside = %s:\n',side)
+  [u p] = StoSLP(t,s,mu,tau);    % eval given density cases...
+  tic, [uc pc] = StoSLP_closeglobal(t,s,mu,tau,side);
+  fprintf('Sto DLP density eval (%.3g sec), max abs err in u cmpts, p:\n',toc)
   disp([max(abs(u-uc)), max(abs(p-pc))])
-  [A P] = StoDLP(t,s,mu);   % matrix cases...
-  tic, [Ac Pc] = StoDLP_closeglobal(t,s,mu,[],side); toc       % slow for now
-  fprintf('matrix fill case, far, side=%s: max abs errors in u cmpts, p:\n',side)
+  tic, [Ac Pc] = StoSLP_closeglobal(t,s,mu,[],side); % fill 20x slower than apply
+  fprintf('matrix fill (%.3g sec) & apply, max abs err in u cmpts, p:\n',toc)
+  disp([max(abs(u-Ac*tau)), max(abs(p-Pc*tau))])
+  [A P] = StoSLP(t,s,mu);   % compare matrix els...
+  fprintf('matrix fill, max abs matrix element diffs for u, p (more stringent, not needed):\n')
   disp([max(abs(A(:)-Ac(:))), max(abs(P(:)-Pc(:)))])
 end
 %profile off; profile viewer

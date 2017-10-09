@@ -127,7 +127,8 @@ end % NB needs N=320 for 13 digits in Re, but 480 for Im part (why slower?)
 %figure; plot(s.t, [real(v) imag(v)], '+-'); title('Re and Im of v=S\sigma');
 
 %%%%%%%%%%%%%%%%%%%%
-function test_LapSLP_closeglobal  % check far-field matches the native rule
+function test_LapSLP_closeglobal
+fprintf('check Laplace SLP close-eval quadr match native rule in far field...\n')
 verb = 0;       % to visualize
 s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
 tau = -0.7+exp(sin(3*s.t));              % pick smooth density w/ nonzero mean
@@ -136,19 +137,18 @@ for side = 'ie'
   if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
   else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
   if verb, plot(t.x,'.'); end
-  tic
+  fprintf('\nside = %s:\n',side)
   [u un] = LapSLP(t,s,tau);    % eval given density cases...
   [uc unc] = LapSLP_closeglobal(t,s,tau,side);
-  [uc uxc uyc] = LapSLP_closeglobal(t,s,tau,side);
-  fprintf('Lap SLP density case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  tic, [uc uxc uyc] = LapSLP_closeglobal(t,s,tau,side);
+  fprintf('Lap SLP density eval (%.3g sec), max abs err in u, un, and [ux,uy]...\n',toc)
   disp([max(abs(u-uc)), max(abs(un-unc)), max(abs(un - (uxc.*real(t.nx)+uyc.*imag(t.nx))))])
-  toc
-  tic
-  [u un] = LapSLP(t,s);   % matrix cases....
   [uc unc] = LapSLP_closeglobal(t,s,[],side);
-  [uc uxc uyc] = LapSLP_closeglobal(t,s,[],side);
-  fprintf('matrix fill case, far, side=%s: max abs errors in u, un, and [ux,uy]...\n',side)
+  tic, [uc uxc uyc] = LapSLP_closeglobal(t,s,[],side);
+  fprintf('matrix fill (%.3g sec) & apply, max abs err in u, un, and [ux,uy]...:\n',toc)
+  disp([max(abs(u-uc*tau)), max(abs(un-unc*tau)), max(abs(un - ((uxc*tau).*real(t.nx)+(uyc*tau).*imag(t.nx))))])
+  [u un] = LapSLP(t,s);   % compare matrix els....
+  fprintf('matrix fill, max abs matrix element diffs in u, un, and [ux,uy]...\n')
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
-  toc
 end
 
