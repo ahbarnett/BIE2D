@@ -1,12 +1,13 @@
 function s = reparam_bunched(s,be)
-% REPARAM_BUNCHED  Reparameterize a segment slowing down at n.pi/2
+% REPARAM_BUNCHED  Reparameterize a segment slowing down at 0,pi/2,pi,3pi/2.
 %
-% s = reparam_bunched(s,be) takes a segment struct s and returns one,
+% s = reparam_bunched(s,be) takes a segment struct s and returns another,
 %  where be is the beta parameter giving the angular range devoted to the
 %  central. The bunching factor is of order exp(be), or bunching region
 %  of order exp(-be).
 %
-% Note: s.cur may be inaccurate. Consider replacing with analytic values
+% Note: s.cur may be inaccurate. The user should consider replacing with
+%  analytic values
 %
 % Without arguments, does self-test
 %

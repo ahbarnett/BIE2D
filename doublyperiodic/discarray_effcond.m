@@ -1,6 +1,5 @@
-function tbl_discarray_effcond
-% Make table of effective conductivity (kappa) of infinite disc array, to match
-% some of Table 2 of J. Helsing, Proc Roy Lond Soc A, 1994.
+function discarray_effcond
+% Effective conductivity (kappa) of infinite disc array.
 % Laplace BVP, single inclusion (K=1), native quad for matrix fill, ELS.
 % Adapted from fig_discarray_drag. Uses helsingeffcond.m
 % Barnett 9/27/17. Fixed close and reparam 9/28/17
@@ -11,7 +10,7 @@ lso.RECT = true;  % linsolve opts, forces QR even when square, more stable
 
 jumps = [1 0];   % pressure driving (jumps) across R-L and T-B
 schur = 1;       % 0 for rect ELS direct solve; 1 for Schur iterative solve
-verbhel = 0;     % 1: print helsing ref soln info, 0: don't.
+verbhel = 0;     % print helsing ref soln info
 
 U.e1 = 1; U.e2 = 1i;     % unit cell; nei=1 for 3x3 scheme
 U.nei = 1; [tx ty] = meshgrid(-U.nei:U.nei); U.trlist = tx(:)+1i*ty(:);
@@ -20,37 +19,39 @@ proxyrep = @LapSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.4; M = 80;       % proxy params
 p.x = Rp * exp(1i*(0:M-1)'/M*2*pi); p = setupquad(p);  % proxy pts
 
-cs = [100 100 1000 1000];  % geom and conductivity params
-sigs = [100 1000 100 1000];      % Hel17 ref val for last: 243.00597813292
-Ns = [200 200 200 300];
-%cs = 1e3; sigs=1e3; Ns=300;
-reparam = 1; % 0: plain trap rule; 1 reparam bunching near touching pts
-close = 1;   % 0: plain Nystrom for A. 1: close-eval (slow)
-chkconv = 1;    % if true, check each ans vs bumped-up N
-if chkconv, cs=kron(cs,[1 1]); sigs=kron(sigs,[1 1]); Ns = kron(Ns,[1 1]) + kron(1+0*Ns,[0 50]); end
+%cs = 2; sigs = 10; Ns = 120; close=0;  % geom and conductivity params
+%cs = 10; sigs = 10; Ns = 240; close=1;  % geom and conductivity params
+%cs = 5; sigs = 10; Ns = 900; close=0;  % geom and conductivity params
+%cs = 10; sigs = 10; Ns = 800; reparam=1; close=0;  % geom, conductivity params
+cs = 100; sigs = 100; Ns = 200; reparam=1; close=1;  % geom, conductivity params
+%cs = 1000; sigs = 1000; Ns = 240; reparam=1; close=1;  % geom, conductivity params
+%cs = 10; sigs = 10; Ns = 200; close=1;  % geom and conductivity params, fails
+% reparam: 0: plain trap rule; 1 reparam bunching near touching pts
+% close: if 0, plain Nystrom for Aelse; if 1, close-eval (slow)
+
+chkconv = 0;    % if true, check each ans vs bumped-up N
+if chkconv, cs=kron(cs,[1 1]); sigs=kron(sigs,[1 1]); Ns = kron(Ns,[1 1]) + kron(1+0*Ns,[0 400]); end
 ts = 0*cs; effconds = 0*cs;               % what we compute
 for i=1:numel(cs)            % -------------------- loop over filling fractions
-  N = Ns(i); r0 = 0.5*sqrt(1-1/cs(i)^2); mindist = 1-2*r0;   % disc radius
+  N = Ns(i); r0 = 0.5*sqrt(1-1/cs(i)^2);   % disc radius
+  h=2*pi*r0/N; delta=(1-2*r0)/h;  % quadr spacing h; h-scaled closeness measure
   lam = (sigs(i)-1)/(sigs(i)+1);   % lambda contrast param
   s = wobblycurve(r0,0,1,N); s.a = 0;  % interior pt needed for close only
   if reparam
-    be = -0.5*log(mindist); s = reparam_bunched(s,be); s.cur = (1/r0)*ones(N,1);
-  end
-  h = min(abs(diff(s.x))); delta=mindist/h; % min quadr spacing; h-scaled closeness measure
+    be = .7*log(cs(i))/log(2); s = reparam_bunched(s,be); s.cur = (1/r0)*ones(N,1);
+  end, %figure; showsegment(s);  % check bunching
   g = [jumps(1)+0*L.x; 0*L.x; jumps(2)+0*B.x; 0*B.x]; rhs = [0*s.x; g]; %driving
   tic
   [E,A,Bm,C,Q] = ELSmatrix(s,p,proxyrep,U,lam,close); % fill (w/ close option)
   if ~schur
     co = linsolve(E,rhs,lso);     % ..... direct bkw stable solve of ELS
+    iter=[0 0]; resvec = 0;     % dummies
     tau = co(1:N); psi = co(N+1:end);
-    iter(2)=nan; resvec = nan;     % dummies
   else                               % ..... schur, square well-cond solve
     R = ones(M,1)/M; H = ones(N,1);  % 1s vectors
     Qtilde = Q + (C*H)*R';               % Gary version of Schur
     X = linsolve(Qtilde,C,lso); y = linsolve(Qtilde,g,lso);
-    %W = diag(sqrt(abs(s.xp)));  % expt left precond
-    [tau,flag,relres,iter,resvec] = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-14, N);  % note iter has 2 elements: 2nd is what want
-    %cond(A-Bm*X)  % is bad for c,sig large
+    [tau,flag,relres,iter,resvec] = gmres(@(x) A*x - Bm*(X*x), -Bm*y, [], 1e-15, N);  % note iter has 2 elements: 2nd is what want
     xi = y - X*tau;
     co = [tau;xi];  % build full soln vector
   end
@@ -62,11 +63,9 @@ for i=1:numel(cs)            % -------------------- loop over filling fractions
   effconds(i) = J(1);
   effcondse(i) = helsingeffcond(cs(i),sigs(i),[],verbhel); % reference soln
   fprintf('c=%g r=%.3g\tN=%d (%.2gh)\t%.3gs\t%d its %.3g\tkap=%.14e\n',cs(i),r0,N,delta,ts(i),iter(2),resvec(end),effconds(i))
-  fprintf('\t\t\t\trel err from helsing ref (%.15g) = %.3g\n',effcondse(i),abs((effconds(i)-effcondse(i))/effcondse(i)))
+  fprintf('\t\t\t\trel err from helsing ref = %.3g\n',abs((effconds(i)-effcondse(i))/effcondse(i)))
   if chkconv & mod(i,2)==0, fprintf('\t\t\t\test rel err = %.3g\n',abs((effconds(i)-effconds(i-1))/effconds(i))), end
 end                         % ---------------------
-%figure; showsegment(s); ss=s; ss.x=ss.x+1; showsegment(ss);   % view quadr
-%keyboard
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end main %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function u = evalsol(s,p,proxyrep,U,z,co)

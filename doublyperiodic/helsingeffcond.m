@@ -5,7 +5,9 @@
 % effcond = helsingeffcond(c,sigma2,npan0,verb)
 %
 %  Uses demo14b code from Helsing's RCIP tutorial to return effcond for
-%  discs of radius r in a 1-periodic array in the plane.
+%  discs of radius r in a 1-periodic array in the plane. Only half the number
+%  of refinements as Helsing are used, since theory gives that the densities
+%  are smooth on the scale 1/c, which is much larger than 1/c^2.
 %
 % Inputs:
 %  c - radius parameter (inverse dist to singularity): r = sqrt(1-1/c^2)/2.
@@ -58,7 +60,7 @@ if nargin<4, verb = 0; end
     izone(:,4)=(3*np0-2*Ng+1:3*np0+2*Ng)';
     for kk=1 %1:3       % just do one expt - hack
       panlen=rr(kk)*parlen;        % actual panel length on coarse mesh
-      nsub=ceil(.5*log(panlen/d(kk))/log(2));  % Johan chose how many subdivisions based on d scale, but ahb halved it: density changes only on sqrt(d) scale.
+      nsub=ceil(.5*log(panlen/d(kk))/log(2));  % Johan chose how many subdivisions based on d scale, but ahb halved it: density changes only on sqrt(d)~1/c scale.
       if nsub<1, nsub=1; end        % handle d being too large
       if verb, fprintf('nsub = %d\n',nsub), end
       [z,zp,zpp,w,wzp,np,zinter]=zinit(sinter,sinterdiff,T,W,rr(kk),npan);
