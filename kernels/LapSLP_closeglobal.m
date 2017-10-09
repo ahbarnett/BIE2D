@@ -129,8 +129,9 @@ end % NB needs N=320 for 13 digits in Re, but 480 for Im part (why slower?)
 %%%%%%%%%%%%%%%%%%%%
 function test_LapSLP_closeglobal
 fprintf('check Laplace SLP close-eval quadr match native rule in far field...\n')
-verb = 0;       % to visualize
-s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
+verb = 1;       % to visualize
+s = wobblycurve(1,0.3,5,200); s.a = mean(s.x)+0.4+0.2i;  % can't be near bdry
+if verb, figure; showsegment(s); plot(s.a,'+'); end
 tau = -0.7+exp(sin(3*s.t));              % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
 for side = 'ie'

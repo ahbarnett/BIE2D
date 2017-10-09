@@ -46,7 +46,7 @@ function [vc vcp] = Cau_closeglobal(x,s,vb,side,o)
 % Outputs:
 %  v  = col vec (or stack of such) approximating the homolorphic function v
 %       at the M targets
-%  vp = col vec (or stack of such) approximatring the complex first derivative
+%  vp = col vec (or stack of such) approximating the complex first derivative
 %       v' at the M targets
 %
 % Without input arguments, a self-test is done outputting errors at various
@@ -364,7 +364,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 function test_Cau_closeglobal     % test self-reproducing of Cauchy integrals
-N = 200; s = wobblycurve(1,0.3,5,N);   % smooth wobbly radial shape params
+N = 200, s = wobblycurve(1,0.3,5,N);   % smooth wobbly radial shape params
 tic; %profile clear; profile on;
 format short g
 for side = 'ie'       % test Cauchy formula for holomorphic funcs in and out...

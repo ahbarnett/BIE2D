@@ -98,7 +98,8 @@ end
 function test_StoSLP_closeglobal          % adapted from Lap tests
 fprintf('check Stokes SLP close-eval quadr match native rule in far field...\n')
 verb = 0;       % to visualize
-s = wobblycurve(1,0.3,5,280); s.a = mean(s.x); if verb,figure;showsegment(s);end
+s = wobblycurve(1,0.3,5,280); s.a = mean(s.x)+0.4+0.2i;   % can't be near bdry
+if verb, figure; showsegment(s); plot(s.a,'+'); end
 mu = 0.9;       % viscosity (real, pos)
 tau = [0.7+sin(3*s.t); -0.4+cos(2*s.t)];  % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals

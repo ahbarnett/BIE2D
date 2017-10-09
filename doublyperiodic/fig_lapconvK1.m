@@ -42,7 +42,7 @@ u = evalsol(s,p,proxyrep,U,z,co);
 fprintf('u diff btw two pts = %.16g  \t(est abs err: %.3g)\n',u(2)-u(1), abs(u(2)-u(1)-uexdiff))
 tic; J = evalfluxes(s,p,proxyrep,U,co); toc
 fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),J(1)-flux1ex)
-if 0   % figure
+if 0   % soln potential figure
   utyp = mean(u);
   nx = 300; gx = ((1:nx)/nx*2-1)*Rp;    % eval grid
   gy = gx; [xx yy] = meshgrid(gx,gy); zz = (xx(:)+1i*yy(:)); clear xx yy;
@@ -62,7 +62,7 @@ if 0   % figure
   %set(gcf,'paperposition',[0 0 4 4]); print -depsc2 figs/lapsolK1.eps
 end
 
-if 0, Ns = 30:10:230;   % ------------------------  N-convergence
+if 1, Ns = 30:10:230;   % ------------------------  N-convergence
 us = nan*Ns; res = us; rest = us; ust = us; es = us;
 Js = nan(2,numel(Ns)); Jst = Js;
 uek = knownsol(U,z,src); % known dipole grid soln, fixed, ignores jumps
@@ -148,7 +148,7 @@ legend('J_1 conv, Ex.1', 'J_1 conv, Ex.2','soln norm, Ex.1','sing vals, Ex.1','l
 text(15,max(nrms)/10,'(e)');
 %text(60,max(nrms)/10,sprintf('$N=%d,   m=%d$',N,m),'interpreter','latex');
 xlabel('M'); axis([Ms(1) Ms(end-1) 1e-17 max(nrms)]);
-set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapMconv.eps
+%set(gcf,'paperposition',[0 0 3.5 3.5]); print -depsc2 figs/lapMconv.eps
 end
 
 if 0 % --------- old Schur tests warm-up (see above for their convergence)
