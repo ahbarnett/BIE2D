@@ -14,20 +14,25 @@ function g = perispecinterp(f,N)
 
 if nargin==0, test_perispecinterp; return; end
 n = numel(f);
-if N==n, g = f; return; end
-if mod(N,2)~=0 || mod(n,2)~=0, warning('N and n must be even, sorry'); end
+if N==n, g = f; return; end   % trivial case!
+if mod(N,2)~=0 || mod(n,2)~=0, warning('N and n must be even; sorry'); end
 F = fft(f(:).');    % row vector
-g = ifft([F(1:n/2) F(n/2+1)/2 zeros(1,N-n-1) F(n/2+1)/2 F(n/2+2:end)]);
+if N>n              % upsample
+  g = ifft([F(1:n/2) F(n/2+1)/2 zeros(1,N-n-1) F(n/2+1)/2 F(n/2+2:end)]);
+else                % downsample
+  g = ifft([F(1:N/2) F(end-N/2+1:end)]);
+end
 g = g*(N/n);   % factor from the ifft
 if size(f,1)>size(f,2), g = g(:); end % make col vector
 %%%%%%
 
 function test_perispecinterp
-n = 50;
-N = 100;
+n = 100;          % starting grid
 x = 2*pi*(0:n-1)/n;
 f = @(x) exp(sin(x));
-g = perispecinterp(f(x),N);
-ge = f(2*pi*(0:N-1)/N);
-% g ./ ge
-norm(g - ge)
+Ns = [142 42];    % upsample then downsample test
+for i=1:2, N=Ns(i);
+  g = perispecinterp(f(x),N);
+  ge = f(2*pi*(0:N-1)/N);
+  norm(g - ge)
+end
