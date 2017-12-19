@@ -36,7 +36,7 @@ co = linsolve(E,rhs,lso);                           % direct bkw stable solve
 toc
 %S = svd(E); disp('last few sing vals of E:'), S(end-5:end) % dim Nul E = 1
 fprintf('resid norm = %.3g\n',norm(E*co - rhs))
-sig = co(1:2*N); psi = co(N+1:end);
+sig = co(1:2*N); psi = co(2*N+1:end);
 fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
 fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.e1)*jumps(1),s.w'*sig(N+1:end)+abs(U.e2)*jumps(2))
 z = .1+.4i;                                         % test pt
