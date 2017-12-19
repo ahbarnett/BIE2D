@@ -7,7 +7,8 @@ function perivelpipe
 % * we don't have close eval for open (periodized?) segments yet.
 % * rewrite using periodized Stokes FMM, which should have a direct option too.
 
-clear; v=3; expt='t'; % verbosity=0,1,2. expt='t' test, 'd' driven no-slip demo
+clear; v=1;  % verbosity=0,1,2,3
+expt='t';    % expt='t' test known soln, 'd' driven no-slip demo
 
 % set up upper and lower walls
 uc.e1 = 2*pi;   % unitcell, e1=lattice vector as a complex number
@@ -70,9 +71,10 @@ toc
 fprintf('resid norm = %.3g\n',norm(E*co - erhs))
 sig = co(1:4*N); psi = co(4*N+1:end);
 fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
-if expt=='t'                         % test known soln at the point zt
-  [ut pt] = evalsol(s,p,proxyrep,mu,uc,zt,co);
+[ut pt] = evalsol(s,p,proxyrep,mu,uc,zt,co);
+if expt=='t'                         % check vs known soln at the point zt
   fprintf('u velocity err at zt = %.3g\n', norm(ut-ue(zt)))
+else, fprintf('u velocity at zt = [%.15g, %.15g]\n', ut(1),ut(2))
 end
 
 if v   % plots
