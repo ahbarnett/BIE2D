@@ -1,14 +1,16 @@
-function perivelpipe(expt)
+function perivelpipe_subdrop(expt)
 % singly-periodic in 2D velocity-BC Stokes BVP, ie "pipe" geom w/ press drop
 % Rewrite of 2014 codes using BIE2D, as in DPLS codes. Dense E fill for now,
 % DLP only on U,D (since wrapping S quad would be harder).  12/17/17
+% Trying subtraction of inhom PCs via a known soln v   1/3/18
 disp('2D 1-periodic pressure-driven pipe flow w/ vel BCs on walls')
+disp('Method: scattering split u = v (has PCs) + w (has BCs). GMRES for w')
 
 % Issues:
 % * we don't have close eval for open (periodized?) segments yet.
 % * rewrite using periodized Stokes FMM, which should have a direct option too.
 
-v=1;  % verbosity=0,1,2,3
+verb=1;                      % verbosity=0,1,2,3
 if nargin==0, expt='t'; end  % expt='t' test known soln, 'd' driven no-slip demo
 
 % set up upper and lower walls
@@ -41,44 +43,53 @@ uc.L = L; uc.R = R;
 proxyrep = @StoSLP;      % sets proxy pt type via a kernel function call
 Rp = 1.1*2*pi; M = 70;    % # proxy pts (2 force comps per pt, so 2M dofs)
 p.x = pi + Rp*exp(2i*pi*(0:M-1)'/M); p = setupquad(p);     % proxy pts
-if v>1, figure; showsegment({U,D},uc.trlist); showsegment({L,R}); plot(p.x,'r+'); plot(zt,'go'); end
+if verb>1, figure; showsegment({U,D},uc.trlist); showsegment({L,R}); plot(p.x,'r+'); plot(zt,'go'); end
 
 mu = 0.7;                                           % fluid viscosity
 if expt=='t' % Exact soln: either periodic or plus fixed pressure drop / period:
   %ue = @(x) [1+0*x; -2+0*x]; pe = @(x) 0*x; % the exact soln: uniform rigid flow, constant pressure everywhere (no drop)
   h=.2; ue = @(x) h*[imag(x).^2;0*x]; pe = @(x) h*2*mu*real(x); % horiz Poisseuil flow (has pres drop)
   disp('expt=t: running known Poisseuil flow BVP...')
-  vrhs = ue(s.x);         % bdry vel data: NB ordering Ux,Dx,Uy,Dy !
+  uBC = ue(s.x);         % bdry vel data: NB ordering Ux,Dx,Uy,Dy !
   jump = pe(uc.e1)-pe(0); % known pressure growth across one period (a number)
 elseif expt=='d'
-  vrhs = zeros(4*N,1);     % no-slip BCs, ie homog vel data on U,D
+  uBC = zeros(4*N,1);     % no-slip BCs, ie homog vel data on U,D
   jump = -1;              % given pressure driving, for flow +x (a number)
   disp('expt=d: solving no-slip pressure-driven flow in pipe...')
 end
 
-tic
-E = ELSmatrix(s,p,proxyrep,mu,uc);                % fill
-if v>2, S = svd(E); disp('last few sing vals of E:'), S(end-5:end)
-  figure; imagesc(E); title('E'); colorbar; end
-%sum(rhs(1:N).*real(U.nx)), sum(rhs(N+1:2*N).*imag(U.nx)) % fluid cons thru U
-%sum(rhs(2*N+1:3*N).*real(D.nx)), sum(rhs(3*N+1:end).*imag(D.nx)) % fluid cons thru D
+[~,A,B,C,Q] = ELSmatrix(s,p,proxyrep,mu,uc);                % fill all
+
+% solve for v, sat Sto in pipe and the inhomog PCs:
 Tjump = -jump * [real(R.nx);imag(R.nx)]; % traction driving growth (vector func)
-erhs = [vrhs; zeros(2*m,1);Tjump];       % expanded lin sys RHS
+PC = [zeros(2*m,1);Tjump];  % periodicity conds (aka g)
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
 warning('off','MATLAB:rankDeficientMatrix')
 lso.RECT = true;  % linsolve opts, forces QR even when square
-co = linsolve(E,erhs,lso);                           % direct bkw stable solve
-toc
-fprintf('resid norm = %.3g\n',norm(E*co - erhs))
-sig = co(1:4*N); psi = co(4*N+1:end);
-fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
-[ut pt] = evalsol(s,p,proxyrep,mu,uc,zt,co);
+xi = linsolve(Q,PC,lso);
+vdata = B*xi;   % v on U,D
+
+% solve for w
+wBC = uBC - vdata;       % RHS for the density-only lin sys
+QdagC = Q\C;
+Aper = A - B*QdagC;      % curve-to-curve periodic Green's for DLP, exists
+S = svd(Aper); disp('last few sing vals of Aper:'), S(end-5:end)
+%co = linsolve(Aper,wBC,lso);    % direct solve: "co" is density tau
+matvec = @(x) Aper*x;
+co = gmres(matvec,wBC,size(Aper,1),1e-14,size(Aper,1));  % iter solve
+fprintf('cond(Aper) = %.3g, dens inf nrm = %.3g\n',cond(Aper),norm(co,inf))
+fprintf('Aper sys resid norm = %.3g\n',norm(Aper*co - wBC))
+
+% hack: add aux parts of v and w to get aux part of u...
+xi = xi - QdagC*co;      % now aux part of u
+cofull = [co;xi];        % stack all unknowns
+[ut pt] = evalsol(s,p,proxyrep,mu,uc,zt,cofull);
 if expt=='t'                         % check vs known soln at the point zt
   fprintf('u velocity err at zt = %.3g\n', norm(ut-ue(zt)))
 else, fprintf('u velocity at zt = [%.15g, %.15g]\n', ut(1),ut(2))
 end
 
-if v   % plots
+if verb   % plots
   nx = 60; gx = 2*pi*((1:nx)-0.5)/nx; ny = nx; gy = gx - pi; % plotting grid
   [xx yy] = meshgrid(gx,gy); t.x = xx(:)+1i*yy(:); Mt = numel(t.x);
   di = reshape(inside(t.x),size(xx));  % boolean if inside domain
@@ -93,7 +104,7 @@ if v   % plots
   title('geom'); if expt=='t',title('geom and (u,p) known soln'); end
   % eval and plot soln...
   ug = nan(size([t.x;t.x])); pg = nan(size(t.x)); ii = inside(t.x);
-  [ug([ii;ii]) pg(ii)] = evalsol(s,p,proxyrep,mu,uc,t.x(ii),co);
+  [ug([ii;ii]) pg(ii)] = evalsol(s,p,proxyrep,mu,uc,t.x(ii),cofull);
   u1 = reshape(ug(1:Mt),size(xx)); u2 = reshape(ug(Mt+(1:Mt)),size(xx));
   pp = reshape(pg,size(xx)); pp = pp - pp(ceil(ny/2),1); % zero p mid left edge
   figure; imagesc(gx,gy, pp); colormap(jet(256));
