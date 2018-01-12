@@ -1,5 +1,28 @@
-Figure-generating codes for doubly-periodic Laplace and Stokes (dpls) project
+Figure-generating codes for 2D doubly-periodic Laplace and Stokes (DLPS) BVPs
+solved by boundary integral equations.
 
-make a link from figs/ to where you want the figure EPS outputs to go.
+Please run ../bie2dsetup.m to configure the MATLAB path before running any
+of the below.
 
-Barnett 6/29/16
+There are six stable driver codes:
+
+fig_lapQconv.m           : Laplace empty BVP convergence (Fig 2.1 ab)
+fig_lapconvK1.m          : periodic Laplace BVP soln & flux conv (Fig 2.2 ace)
+fig_stoQconv.m           : convergence of Laplace empty BVP solver (Fig 2.1 c)
+fig_stoconvK1.m          : periodic Stokes BVP soln & flux conv (Fig 4.1 ac)
+tbl_discarray_effcond.m  : square disc array Laplace conductivity, including
+                           comparing against Helsing's solution (Table 3.1)
+tbl_discarray_drag.m     : square disc array Stokes permeability (Table 4.1)
+
+The fig_* codes are very quick to run (<1 to a couple of seconds).
+The tbl_* codes take around 10-20 seconds.
+
+To create EPS figures, make a figs/ directory and uncomment the figure
+printing commands in the fig_* drivers above.
+
+The code helsingeffcond.m is a slightly changed version of demo14b.m by Johan
+Helsing (available on his website).
+
+There are also other experimental codes.
+
+(C) Barnett 2016-2018
