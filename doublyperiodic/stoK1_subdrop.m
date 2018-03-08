@@ -10,11 +10,12 @@ function stoK1_subdrop
 % convention for the perifmm which handles inconsistent total force and
 % flow by distributing it uniformly (via Z) onto the discrepancy. This
 % has no instability. Variation in the solution of the Q solve (empty BVP)
-% is removed by enforcing orthogonality R'*xi = 0_3.
+% is removed by enforcing orthogonality R'*xi = 0_3 (if this is not done,
+% gmres only gets 6 digits due to xi hence offsets flopping around).
 %
 % Barnett 1/3/18-1/12/18. 3/6/18 again trying find perifmm form - works.
 %
-% Todo: rewrite the final eval stages to use the mock perifmm too.
+% Todo: rewrite the final eval/flux to use the mock perifmm too.
 
 disp('2D 2-periodic Stokes pressure-driven, K=1 inclusion, via split method')
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
@@ -97,8 +98,8 @@ fprintf('\t norm(QR) = %.3g\n',norm(Q*R))
 [Aper X] = fillAper(A,B,C,Q,s,p,U); % get full Aper matrix
 S = svd(Aper); disp('last few sing vals of Aper:'); disp(S(end-5:end)) %cond(Aper)
 T = [ones(N,1) zeros(N,1);zeros(N,1) ones(N,1)];  % 2N*2 stack of const flows
-al = [0;0];  % default transl flow coeffs
-if 0       % direct, new
+al = [0;0];  % default transl flow coeffs, will get solved for too.
+if 0       % direct, new, is just wrong
   wsig = linsolve(Aper,wBC,lso);       % direct solve
   fprintf('direct: ||wsig||=%.3g, resid=%.3g\n',norm(wsig),norm(Aper*wsig-wBC))
   wxi = X*wsig;  % create xi aux rep for this density soln
@@ -128,9 +129,9 @@ disp('Y''*wsig (should all be zero):'); disp(Y'*wsig)
 %disp('||Q.wxi+C.wsig||'); norm(Q*wxi+C*wsig)
 
 disp('R''*wxi :'); disp(R'*wxi)
-%fprintf('w-solve 1st row chk: %.3g\n',norm(A*wsig + B*wxi - wBC))
-%fprintf('w-solve 2nd row chk: %.3g\n',norm(C*wsig + Q*wxi))
-%P = Z*inv(W'*Z)*W'; Cproj = C-P*C; fprintf('w-solve 2nd row Cproj chk: %.3g\n',norm(Cproj*wsig + Q*wxi))
+fprintf('w-solve 1st row chk: %.3g\n',norm(A*wsig + B*wxi + T*al - wBC))
+fprintf('w-solve 2nd row chk: %.3g\n',norm(C*wsig + Q*wxi))
+P = Z*inv(W'*Z)*W'; Cproj = C-P*C; fprintf('w-solve 2nd row Cproj chk: %.3g\n',norm(Cproj*wsig + Q*wxi))
 %norm(P*C*wsig)  % zero when wsig correct
 
 sig = wsig + constsig; psi = wxi + xi;   % combine u = w + v  via their coeffs
@@ -138,8 +139,9 @@ co = [sig;psi];                       % unfolded coeffs for total eval
 
 fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
 fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.e2)*jumps(1),s.w'*sig(N+1:end)+abs(U.e1)*jumps(2))
+% todo: replace this eval and fluxes w/ mock perifmm call...
 [u p0] = evalsol(s,p,proxyrep,mu,sd,U,z,co);        % native quad (far) test
-u = u + al;
+u = u + al;         % note: the rep for soln u includes transl constants
 fprintf('u at pt = (%.16g,%.16g)  \t(est abs err: %.3g)\n',u(1),u(2),norm(u-uex))
 J = evalfluxes(s,p,proxyrep,mu,sd,U,co);
 J = J + al;
@@ -233,7 +235,7 @@ function [y xi] = mockperifmm(x,A,B,C,Q,s,p,U)  % apply Aper for now
 % homog periodicity.
 % Outputs:
 % y = Aper*x, as Stokes 2d2p perifmm would do. xi is the aux coeffs used.
-% Barnett 1/10/18. retry 3/7/18
+% Barnett 1/10/18; retry 3/7/18
 %[Aper genxi] = fillAper(A,B,C,Q,s,p); y=Aper*x; xi=genxi*x; return % test!
 M = numel(p.x); N = numel(s.x); m=numel(U.L.x);   % # proxies, bdry, wall nodes
 % build the "ones-vectors"...
@@ -248,18 +250,21 @@ w = U.L.w'; W = [[zeros(2*m,1);w;zeros(3*m,1);w;zeros(m,1)],...
                  [zeros(3*m,1);w;zeros(3*m,1);w],...
                  [w;zeros(4*m,1);w;zeros(2*m,1)]]; Z = (W>0); % W'*Z = 2I_3
 P = Z*inv(W'*Z)*W';
-Qtilde = Q + Z*R';   % picks a convention R'*xi = 0
-Cx = C*x;
-g = - (Cx - P*Cx);      % project to consistent discrep data for empty BVP
-xi = Qtilde \ g;    % aux dofs
-%R'*xi is indeed 0_3
-y = A*x + B*xi;
+%rng(0); R = randn(size(R));  % try some other fixed R: only gets 7 digits! why?
+Qtilde = Q + Z*R';   % since dim nul Q = 3, enforces a convention R'*xi = 0_3
+% Notice how GMRES only gets 6 digits if such a convention is not applied
+% (xi flops around in the 3d-nullspace and messes up convergence)
+discrep = C*x;
+g = - (discrep - P*discrep);  % project to a consistent discrep for empty BVP
+xi = Qtilde \ g;    % solve aux dofs;  checked R'*xi is indeed 0_3
+y = A*x + B*xi;   % add two contribs for rep
+% todo: also output J1,J2 since will want in real perifmm.
 
 function [Aper X] = fillAper(A,B,C,Q,s,p,U)  % densely fill Aper
 % A..Q are the dense ELS blocks, for whatever rep.
 % Outputs: Aper, as Stokes 2d2p perifmm would apply. if til, perturb Q,B->tilde.
 % genxi is mat which gives xi from the Aper soln, ie -X in DPLS.
-% Barnett 1/12/18
+% Barnett 3/7/18
 M = numel(p.x); N = numel(s.x); m=numel(U.L.x);  % # proxies, bdry & wall nodes
 % build the "ones-vectors"...
 % H is 2N*3, densities generating incompat
@@ -271,8 +276,9 @@ w = U.L.w'; W = [[zeros(2*m,1);w;zeros(3*m,1);w;zeros(m,1)],...
                  [zeros(3*m,1);w;zeros(3*m,1);w],...
                  [w;zeros(4*m,1);w;zeros(2*m,1)]]; Z = (W>0); % W'*Z = 2I_3
 P = Z*inv(W'*Z)*W';
-%R = 0*R; R(1:3,1:3)=eye(3); %R = randn(size(R));  % try arb R !
-Qtilde = Q + Z*R';   % picks a convention R'*xi = 0
+%R = 0*R; R(1:3,1:3)=eye(3);  % arb fixed R
+%rng(0); R = randn(size(R));  % try arb but fixed R - works equally well here
+Qtilde = Q + Z*R';   % enforce a convention R'*xi = 0
 G = -C + P*C;
 X = Qtilde \ G;    % matrix version of xi
 fprintf('\tnorm X = %.3g\t\tnorm(R^TX) = %.3g\n',norm(X),norm(R'*X))

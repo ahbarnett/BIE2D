@@ -23,6 +23,10 @@ printing commands in the fig_* drivers above.
 The code helsingeffcond.m is a slightly changed version of demo14b.m by Johan
 Helsing (available on his website).
 
-There are also other experimental codes.
+There are also other experimental codes:
+
+stoK1_subdrop.m          : working convention for use of FMM with periodization
+			   invisible to user, in context of pressure-drop BVP.
+
 
 (C) Barnett 2016-2018
