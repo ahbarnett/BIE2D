@@ -2,19 +2,10 @@ function stoK1_subdrop
 % version of fig_stoconvK1, doubly-periodic 2D pressure-driven Stokes solver.
 % Single inclusion (K=1), native quad for matrix fill, close eval for soln.
 % Try subtraction of pressure drop via "scattering" split to u = v + w,
-% with w solved by GMRES on a mocked-up perifmm.
-%
-% This version works by using Wen's trick of adding 2 unknown constant
-% translational flows to the perifmm representation; this accounts for
-% whatever constant offset convention the perifmm has. We also fixed a
-% convention for the perifmm which handles inconsistent total force and
-% flow by distributing it uniformly (via Z) onto the discrepancy. This
-% has no instability. Variation in the solution of the Q solve (empty BVP)
-% is removed by enforcing orthogonality R'*xi = 0_3.
-%
-% Barnett 1/3/18-1/12/18. 3/6/18 again trying find perifmm form - works.
-%
-% Todo: rewrite the final eval stages to use the mock perifmm too.
+% with w solved by GMRES on mocked-up perifmm.
+% Conclusion: tilde-perturbations of B and Q needed to get acc for Aper lin sys.
+% 
+% Barnett 1/3/18-1/12/18
 
 disp('2D 2-periodic Stokes pressure-driven, K=1 inclusion, via split method')
 warning('off','MATLAB:nearlySingularMatrix')  % backward-stable ill-cond is ok!
@@ -42,9 +33,6 @@ N = 150; s = wormcurve(a,b,N); s.a = mean(s.x);  % a needed for p ext close
 PC = [zeros(2*m,1);jumps(1)+0*U.L.x;zeros(4*m,1);jumps(2)+0*U.B.x]; % physical
 rhs = [zeros(2*N,1); PC]; % driving for ELS
 [E,A,B,C,Q] = ELSmatrix(s,p,proxyrep,mu,sd,U);                % fill blocks
-%S = svd(E); disp('last few sing vals of E:'); disp(S(end-5:end))
-%[~,S,V] = svd(E); figure; plot(V(:,end)); % show the 1 vec in Nul E: all xi
-% figure; subplot(2,1,1); imagesc(V); subplot(2,1,2); semilogy(diag(S)); % all low sing vals have r sing vecs assoc w/ xi
 %figure; imagesc(E); colorbar; drawnow
 if 0   % direct ELS solve (no scatt split), checks the setup is good.
   co = linsolve(E,rhs,lso);
@@ -58,9 +46,8 @@ if 0   % direct ELS solve (no scatt split), checks the setup is good.
 end
 
 % build all stacks of 3 "ones-vectors"...
-% Y is 2N*3, enforces compat (includes quadr wei). Signs so W'*C=Y' ...
-Y = [-s.w' zeros(1,N); zeros(1,N) -s.w'; s.w'.*real(s.nx)' s.w'.*imag(s.nx)']';
-Y2 = Y(:,1:2);   % just the force (not incompress) compat
+% Y is 2N*3, enforces compat (includes quadr wei)
+Y = [s.w' zeros(1,N); zeros(1,N) s.w'; s.w'.*real(s.nx)' s.w'.*imag(s.nx)']';
 % H is 2N*3, densities generating incompat
 H = [ones(1,N) zeros(1,N);zeros(1,N) ones(1,N);real(s.nx)' imag(s.nx)']';
 % R is 2M*3, is proxy coeffs proj onto Nul Q
@@ -70,68 +57,61 @@ w = U.L.w'; W = [[zeros(2*m,1);w;zeros(3*m,1);w;zeros(m,1)],...
                  [zeros(3*m,1);w;zeros(3*m,1);w],...
                  [w;zeros(4*m,1);w;zeros(2*m,1)]]; Z = (W>0); % W'*Z = 2I_3
 
+fixv = 0;   % if true, make v at 1st node vanish, try to exploit in w iter solve
 % solve for v via correction to const sigma: Stokes in U\Omega, has inhomog PC
 perim = sum(s.w);
 constsig = -kron(jumps',ones(N,1)) / perim / sd(1);  % gives left force = jumps
 PC2 = PC - C*constsig;        % PC now consistent
-xi = linsolve(Q,PC2,lso);
+if ~fixv, xi = linsolve(Q,PC2,lso);
+else, vc = A([1,1+N],:)*constsig;   % velocity at 1st node to cancel w/ aux
+    xi = linsolve([Q;B(1,:);B(1+N,:)],[PC2;-vc(1);-vc(2)],lso); end  % extra cond
 fprintf('v solve: |xi|=%.3g, resid nrm = %.3g\n',norm(xi), norm(Q*xi-PC2))
-fprintf('check v rep matches PC: %.3g\n',norm(C*constsig + Q*xi - PC))
 vdata = A*constsig + B*xi;   % v on bdry (exterior limit), rep in 2 basis types
+if fixv, disp('vdata at 1st node'); disp(vdata([1,1+N])), end
+fprintf('check v rep matches PC: %.3g\n',norm(C*constsig + Q*xi - PC))
 
 % solve for w
 wBC = -vdata;       % RHS for the density-only lin sys
 %fprintf('|wBC|_2 = %.3g\nY''*vdata:\n',norm(wBC)), disp(Y'*vdata)
 % note v zero-flux but doesn't have zero total vector
-%co = randn(2*N,1); [y,wxi] = mockperifmm(co,A,B,C,Q,s,p,U); stop % test mock fmm
-%for i=1:3, norm(mockperifmm(H(:,i),A,B,C,Q,s,p,U)), end, stop  % check zero
+%co = randn(2*N,1); [y,wxi] = mockperifmm(co,A,B,C,Q,s,p); stop % test mock fmm
+%for i=1:3, norm(mockperifmm(H(:,i),A,B,C,Q,s,p)), end, stop  % check zero
 
-fprintf('\tis W^TC = Y^T?  yes to %.3g\n',norm(W'*C - Y'))
-% test perifmm nullspace is H - it is:
-%for i=1:3, norm(mockperifmm(H(:,i),A,B,C,Q,s,p,U)), end
+til = 0;      % 0: don't perturb B,Q; 1 use Btilde,Qtilde pert via HR'
+
+% test perifmm nullspace is H - it is
+for i=1:3, norm(mockperifmm(H(:,i),A,B,C,Q,s,p,til,fixv)), end
 %inv(Y'*H)   % exists! so Y has full rank proj onto H=Nul(Aper)
 %fprintf('is b in ran(Aper)?');
-fprintf('\t norm(QR) = %.3g\n',norm(Q*R))
 
-
-[Aper X] = fillAper(A,B,C,Q,s,p,U); % get full Aper matrix
-S = svd(Aper); disp('last few sing vals of Aper:'); disp(S(end-5:end)) %cond(Aper)
-T = [ones(N,1) zeros(N,1);zeros(N,1) ones(N,1)];  % 2N*2 stack of const flows
-al = [0;0];  % default transl flow coeffs
-if 0       % direct, new
+[Aper genxi] = fillAper(A,B,C,Q,s,p,U,til,fixv); % get full Aper matrix
+if 0       % direct
+  S = svd(Aper); disp('last few sing vals of Aper:'); disp(S(end-5:end))
   wsig = linsolve(Aper,wBC,lso);       % direct solve
   fprintf('direct: ||wsig||=%.3g, resid=%.3g\n',norm(wsig),norm(Aper*wsig-wBC))
-  wxi = X*wsig;  % create xi aux rep for this density soln
-elseif 0       % direct 2-expanded (Wen style) ... works
-  Apere = [Aper, T; Y2', zeros(2,2)];      %cond(Apere)
-  co = linsolve(Apere,[wBC;0;0],lso);       % direct solve
-  wsig = co(1:2*N); al = co(end-1:end);    % get sigma and transl flow coeffs
-  fprintf('direct: ||wsig||=%.3g, resid=%.3g\n',norm(wsig),norm(Aper*wsig+T*al-wBC))
-  wxi = X*wsig;  % create xi aux rep for this density soln
-elseif 1   % ...or, iter for 2-expanded case (Wen style) ... works
-  matvec = @(x) mockperifmm(x,A,B,C,Q,s,p,U);   % the perifmm
-  matvece = @(x) [matvec(x(1:2*N))+T*x(end-1:end); Y2'*x(1:2*N)]; %expand matvec
-  [co,flag,relres,iter,resvec] = gmres(matvece,[wBC;0;0],[],1e-14,2*N);
+  wxi = genxi*wsig;  % create xi aux rep for this density soln
+  if til, wsig = wsig + H*(R'*wxi); end    % correct the density
+  %wsig = wsig - H*((Y'*H)\(Y'*wsig));       % proj orthog to Y - fails
+elseif 1   % ...or, iter  *** NEW ONES MAT
+  rng(0); Z = randn(2*N,3);
+  matvec = @(x) mockperifmm(x,A,B,C,Q,s,p,til,fixv) + Z*(Y'*x);  % 1smat lin sys
+  [wsig,flag,relres,iter,resvec] = gmres(matvec,wBC,[],1e-14,2*N);
   its=iter(2),resvec
+  fprintf('pert resid nrm = %.3g\n',norm(matvec(wsig) - wBC))
+  fprintf('orig resid nrm = %.3g\n',norm(mockperifmm(wsig,A,B,C,Q,s,p,til,fixv) - wBC))
   % since lost it, re-grab wxi the aux coeffs for soln dens wsig...
-  wsig = co(1:2*N); al = co(end-1:end);    % get sigma and transl flow coeffs
-  [~,wxi] = mockperifmm(wsig,A,B,C,Q,s,p,U);
+  [~,wxi] = mockperifmm(wsig,A,B,C,Q,s,p,til,fixv);
+  if til, wsig = wsig + H*(R'*wxi); end % correct the density
 else       % ...or, ELS solve for just w part...  works, of course
   wrhs = [wBC;zeros(8*m,1)]; co = linsolve(E,wrhs,lso);  % rhs = [-vdata;0]
   fprintf('for w: ELS resid nrm = %.3g\n',norm(E*co - wrhs))
   wsig = co(1:2*N); wxi = co(2*N+1:end);
 end
 disp('Y''*wsig (should all be zero):'); disp(Y'*wsig)
-%disp('H''*wsig :'); disp(H'*wsig)
+disp('H''*wsig :'); disp(H'*wsig)
 %disp('WT.C.wsig'); disp(W'*C*wsig);
 %wxi = -Q\(C*wsig);
 %disp('||Q.wxi+C.wsig||'); norm(Q*wxi+C*wsig)
-
-disp('R''*wxi :'); disp(R'*wxi)
-%fprintf('w-solve 1st row chk: %.3g\n',norm(A*wsig + B*wxi - wBC))
-%fprintf('w-solve 2nd row chk: %.3g\n',norm(C*wsig + Q*wxi))
-%P = Z*inv(W'*Z)*W'; Cproj = C-P*C; fprintf('w-solve 2nd row Cproj chk: %.3g\n',norm(Cproj*wsig + Q*wxi))
-%norm(P*C*wsig)  % zero when wsig correct
 
 sig = wsig + constsig; psi = wxi + xi;   % combine u = w + v  via their coeffs
 co = [sig;psi];                       % unfolded coeffs for total eval
@@ -139,10 +119,8 @@ co = [sig;psi];                       % unfolded coeffs for total eval
 fprintf('density norm = %.3g, proxy norm = %.3g\n',norm(sig), norm(psi))
 fprintf('body force + jumps = (%.3g,%.3g)  should vanish\n',s.w'*sig(1:N)+abs(U.e2)*jumps(1),s.w'*sig(N+1:end)+abs(U.e1)*jumps(2))
 [u p0] = evalsol(s,p,proxyrep,mu,sd,U,z,co);        % native quad (far) test
-u = u + al;
 fprintf('u at pt = (%.16g,%.16g)  \t(est abs err: %.3g)\n',u(1),u(2),norm(u-uex))
 J = evalfluxes(s,p,proxyrep,mu,sd,U,co);
-J = J + al;
 fprintf('fluxes (%.16g,%.16g)   (est abs err: %.3g)\n',J(1),J(2),abs(J(1)-flux1ex))
 
 %keyboard
@@ -228,14 +206,19 @@ function [zz ii] = extgrid(gx,gy,s,U)  % grid points and indices outside Omegas
 ii = true(size(zz));               % indices outside Omega or its copies
 for i=-1:1, for j=-1:1, si = s.inside(zz+U.e1*i+U.e2*j); ii(si)=false; end, end
 
-function [y xi] = mockperifmm(x,A,B,C,Q,s,p,U)  % apply Aper for now
+function [y xi] = mockperifmm(x,A,B,C,Q,s,p,til,fixv)  % apply Aper for now
 % x is inclusion density vec. Rest are the dense ELS blocks, for whatever rep.
-% homog periodicity.
+% First orthog projects to make density compatible, per defn is homog PCs.
+% if til=0, leave Q,B alone (default); if til=1 replace by Qtilde,Btilde
+%  in which case soln of a lin sys needs adding H*R'*xi.
+% fixv is for the expt with vdata(1)=[0;0].
 % Outputs:
 % y = Aper*x, as Stokes 2d2p perifmm would do. xi is the aux coeffs used.
-% Barnett 1/10/18. retry 3/7/18
-%[Aper genxi] = fillAper(A,B,C,Q,s,p); y=Aper*x; xi=genxi*x; return % test!
-M = numel(p.x); N = numel(s.x); m=numel(U.L.x);   % # proxies, bdry, wall nodes
+% Barnett 1/10/18
+%[Aper genxi] = fillAper(A,B,C,Q,s,p,til); y=Aper*x; xi=genxi*x; return % test!
+if nargin<8, til=0; end
+if nargin<9, fixv=0; end
+M = numel(p.x); N = numel(s.x);   % # proxies, bdry nodes
 % build the "ones-vectors"...
 % Y is 2N*3, enforces compat (includes quadr wei)
 Y = [s.w' zeros(1,N); zeros(1,N) s.w'; s.w'.*real(s.nx)' s.w'.*imag(s.nx)']';
@@ -243,19 +226,30 @@ Y = [s.w' zeros(1,N); zeros(1,N) s.w'; s.w'.*real(s.nx)' s.w'.*imag(s.nx)']';
 H = [ones(1,N) zeros(1,N);zeros(1,N) ones(1,N);real(s.nx)' imag(s.nx)']';
 % R is 2M*3, is proxy
 R = [[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(p.x);imag(p.x)]]/M;
-% Z, W are 8m*3;  Z is const discrep incons vecs, W lin func defining compat
-w = U.L.w'; W = [[zeros(2*m,1);w;zeros(3*m,1);w;zeros(m,1)],...
-                 [zeros(3*m,1);w;zeros(3*m,1);w],...
-                 [w;zeros(4*m,1);w;zeros(2*m,1)]]; Z = (W>0); % W'*Z = 2I_3
-P = Z*inv(W'*Z)*W';
-Qtilde = Q + Z*R';   % picks a convention R'*xi = 0
-Cx = C*x;
-g = - (Cx - P*Cx);      % project to consistent discrep data for empty BVP
-xi = Qtilde \ g;    % aux dofs
-%R'*xi is indeed 0_3
-y = A*x + B*xi;
 
-function [Aper X] = fillAper(A,B,C,Q,s,p,U)  % densely fill Aper
+xt=x; al = -(Y'*H)\(Y'*x); xt = x + H*al;    % project x to xt, so Y'*xt=0_3
+%al = -(Y'*Y)\(Y'*x); xt = x + Y*al;   % orthog proj, fails
+g = -C*xt;  % eval the discrep to kill
+%fprintf('mockperifmm: |g|_2 = %.3g\n',norm(g))
+Qtilde = Q; if til, Qtilde = Q + (C*H)*R'; end
+Btilde = B; if til, Btilde = B + (A*H)*R'; end
+if ~fixv, xi = Qtilde\g;   % find aux coeffs to match it. %bare Q amplifies incompat err by 1e9!
+  %fprintf('\tnorm xi = %.3g\n',norm(xi))
+  %fprintf('\t norm (Q R) = %.3g\n',norm(Q*R))
+else, vc = A([1,1+N],:)*xt;   % velocity at 1st node to cancel w/ aux
+  xi = [Qtilde;Btilde(1,:);Btilde(1+N,:)] \ [g;-vc(1);-vc(2)]; end  % extra cond
+  
+%al = -(R'*R)\(R'*xi); xi = xi + R*al;    % orthog project xi so R'*xt=0_
+%norm(Q*xi - g)  % check is zero, yes
+
+%fprintf('mockperifmm: |xt|_2 = %.3g,  |xi|_2 = %.3g,  |B.xi|=%.3g\n',norm(xt),norm(xi), norm(B*xi))
+y = A*xt + Btilde*xi;   % "3x3 nr FMM + aux eval". note xi=-"X" in matrix case
+%fprintf('mockperifmm: |y|_2 = %.3g\n',norm(y))
+%if fixv, disp('y at 1st node'); disp(y([1,1+N])), end
+%al = -(Y'*Y)\(Y'*y); y = y + Y*al;    % project y so Y'*y=0_3
+%Y'*y
+
+function [Aper genxi] = fillAper(A,B,C,Q,s,p,U,til,fixv)  % densely fill Aper
 % A..Q are the dense ELS blocks, for whatever rep.
 % Outputs: Aper, as Stokes 2d2p perifmm would apply. if til, perturb Q,B->tilde.
 % genxi is mat which gives xi from the Aper soln, ie -X in DPLS.
@@ -270,12 +264,26 @@ R = [[ones(M,1);zeros(M,1)],[zeros(M,1);ones(M,1)],[real(p.x);imag(p.x)]]/M;
 w = U.L.w'; W = [[zeros(2*m,1);w;zeros(3*m,1);w;zeros(m,1)],...
                  [zeros(3*m,1);w;zeros(3*m,1);w],...
                  [w;zeros(4*m,1);w;zeros(2*m,1)]]; Z = (W>0); % W'*Z = 2I_3
-P = Z*inv(W'*Z)*W';
-%R = 0*R; R(1:3,1:3)=eye(3); %R = randn(size(R));  % try arb R !
-Qtilde = Q + Z*R';   % picks a convention R'*xi = 0
-G = -C + P*C;
-X = Qtilde \ G;    % matrix version of xi
-fprintf('\tnorm X = %.3g\t\tnorm(R^TX) = %.3g\n',norm(X),norm(R'*X))
-%RTX = R'*X; RTX(:,end/2)  % if don't use P, then only 2nd cmpt (row) = 0.
-%inv(W'*Z) %  I/2
-Aper = A + B*X;
+if 1     % perturbed ELS, stable if til=1 and post-solve til=1 correction
+  Qtilde = Q; if til, Qtilde = Q + (C*H)*R'; end
+  Btilde = B; if til, Btilde = B + (A*H)*R'; end
+  X = Qtilde\C;
+  Aper = A-Btilde*X;
+  genxi=-X;
+elseif 0    % attempt at physical discrep solve, right but unstable 1e-5 err
+  %Ctilde = C - Z*((W'*Z)\W'*C);  % has W'*Ctilde=0, wrong when solve!
+  Ctilde = C - W*((Z'*W)\Z'*C);  % why works only here with Z<->W swapped??
+  X = Q\Ctilde;
+  Aper = A + B*X;
+  genxi = X;
+else     % another way for physical discrep solve - wrong
+  %W'*Q
+  %Ctilde = C - Z*((W'*Z)\W'*C);, W'*Ctilde
+  Qtilde = Q + Z*R';
+  if ~fixv,   X = -Qtilde\C;
+  else,  vc = A([1,1+N],:);   % velocity at 1st node to cancel w/ aux
+  X = -[Qtilde;B(1,:);B(1+N,:)] \ [C;vc(1,:);vc(2,:)]; end  % extra cond
+  Aper = A + B*X;
+  % if fixv, Aper([1,1+N],:), end   % rows do vanish to 1e-8, but unstable
+  genxi = X;
+end
