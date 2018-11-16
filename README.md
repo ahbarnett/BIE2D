@@ -14,6 +14,10 @@ Also includes the following contributions and influences:
   Gary Marple - matrix versions of global close evaluation quadratures  
   Nick Trefethen - Gaussian quadrature  
 
+As of 2018, David Stein made a python implementation of most of BIE2D, including
+new fast versions of close evaluations, in his package [pyBIE2D](https://github.com/dbstein/pybie2d).
+
+
 ### Installation
 
 Download using `git`, `svn`, or as a zip (see green button above).
