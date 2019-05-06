@@ -1,0 +1,9 @@
+Laplace, Stokes direct summation kernels, and global close-eval quadratures.
+The latter are built on the Cauchy close evaluation: Cau_closeglobal.m
+
+cauchycompeval_lsc2d.m : legacy method from LSC2D paper; superceded by
+                         Cau_closeglobal.m
+
+Includes 2nd deriv of SLP due to Jun Wang.
+
+srcsum, srcsum2 : helper routines for periodicity.

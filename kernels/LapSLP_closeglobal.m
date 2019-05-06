@@ -1,4 +1,4 @@
-function [u ux uy info] = LapSLP_closeglobal(t, s, tau, side)
+function [u ux uy uxx uxy uyy info] = LapSLP_closeglobal(t, s, tau, side)
 % LAPSLP_CLOSEGLOBAL - Laplace SLP potential & deriv w/ global close-eval quad
 %
 % u = LapSLP_closeglobal(t,s,dens,side) returns potentials at targets t.x
@@ -31,7 +31,9 @@ function [u ux uy info] = LapSLP_closeglobal(t, s, tau, side)
 %           derivatives (M-by-n) using t.nx
 %  [u ux uy] = LapSLPeval_closeglobal(t,s,dens,side) instead returns x- and y-
 %           partials of u at the targets (ignores t.nx)
-%  [u ux uy info] = LapSLPeval_closeglobal(t,s,dens,side) also gives diagnostic:
+%  [u ux uy uxx uxy uyy] = LapSLPeval_closeglobal(t,s,dens,side) returns u, 1st
+%           derivs and 2nd derivs at the targets (ignores t.nx)
+%  [u ux uy uxx uxy uyy info] = LapSLPeval_closeglobal(t,s,dens,side) also gives diagnostic:
 %           info.vb = vector of v boundary values (M-by-n)
 %           info.imv = imag part of v at targets (M-by-n)
 %
@@ -79,20 +81,38 @@ if nargout>1                                % want derivatives
   if nargout==2    % or dot w/ targ nor...
     ux = bsxfun(@times,ux,real(t.nx)) + bsxfun(@times,uy,imag(t.nx));
   end
+%
+  if nargout>=4 % second derivs added
+    [v, vp, vpp]=Cau_closeglobal(t.x,s,vb,side);
+    uxx = real(vpp);
+    uxy = -imag(vpp);
+    uyy = -real(vpp);
+  end
+
 else
   v = Cau_closeglobal(t.x,s,vb,side);        % does Sec. 3 of [lsc2d]
 end
 u = real(v);
+
 if side=='e'         % add real part of log and of v_infty back in...
   u = u - log(abs(s.a - t.x))*totchgp + ones(M,1)*real(vinf);   % Re v_infty = 0 anyway
   if nargout==2      % don't forget to correct the derivs too!
     ux = ux + real(t.nx./(s.a - t.x))*totchgp;
-  elseif nargout==3
+  end
+
+  if nargout>=3
     ux = ux + real(1./(s.a - t.x))*totchgp;
     uy = uy - imag(1./(s.a - t.x))*totchgp;
   end
+
+  if nargout>=4
+    % correction for the second derivs
+    uxx = uxx + real(1./(s.a-t.x).^2)*totchgp;
+    uxy = uxy - imag(1./(s.a-t.x).^2)*totchgp;
+    uyy = uyy - real(1./(s.a-t.x).^2)*totchgp; 
+  end
 end
-%%%%%%
+
 
 function S = CSLPselfmatrix(s,side) % complex SLP Kress-split Nystrom matrix
 % s = src seg, even # nodes. side = 'i'/'e' int/ext case. Barnett 10/18/13.
@@ -126,30 +146,49 @@ for N=40:40:500  % convergence study of Re v, Im v...
 end % NB needs N=320 for 13 digits in Re, but 480 for Im part (why slower?)
 %figure; plot(s.t, [real(v) imag(v)], '+-'); title('Re and Im of v=S\sigma');
 
+
+
 %%%%%%%%%%%%%%%%%%%%
 function test_LapSLP_closeglobal
 fprintf('check Laplace SLP close-eval quadr match native rule in far field...\n')
-verb = 1;       % to visualize
-s = wobblycurve(1,0.3,5,200); s.a = mean(s.x)+0.4+0.2i;  % can't be near bdry
+verb = 0;       % to visualize
+N = 300;
+s = wobblycurve(1,0.3,5,N); s.a = mean(s.x)+0.4+0.2i;  % can't be near bdry
 if verb, figure; showsegment(s); plot(s.a,'+'); end
+
 tau = -0.7+exp(sin(3*s.t));              % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
+
 for side = 'ie'
   if side=='e', t.x = 1.5+1i+rand(nt,1)+1i*rand(nt,1);         % distant targs
   else, t.x = 0.6*(rand(nt,1)+1i*rand(nt,1)-(0.5+0.5i)); end % targs far inside
   if verb, plot(t.x,'.'); end
   fprintf('\nside = %s:\n',side)
-  [u un] = LapSLP(t,s,tau);    % eval given density cases...
+
+  [u un uxx uxy uyy] = LapSLP(t,s,tau);    % eval given density cases...
   [uc unc] = LapSLP_closeglobal(t,s,tau,side);
-  tic, [uc uxc uyc] = LapSLP_closeglobal(t,s,tau,side);
+  tic, [uc uxc uyc uxxc uxyc uyyc] = LapSLP_closeglobal(t,s,tau,side);
   fprintf('Lap SLP density eval (%.3g sec), max abs err in u, un, and [ux,uy]...\n',toc)
   disp([max(abs(u-uc)), max(abs(un-unc)), max(abs(un - (uxc.*real(t.nx)+uyc.*imag(t.nx))))])
-  [uc unc] = LapSLP_closeglobal(t,s,[],side);
-  tic, [uc uxc uyc] = LapSLP_closeglobal(t,s,[],side);
+  fprintf('Lap SLP density eval (%.3g sec), max abs err in [uxx, uxy, uyy]...\n',toc)
+  disp([max(abs(uxx-uxxc)), max(abs(uxy-uxyc)), max(abs(uyy-uyyc))]);
+
+%--------------
+% add an example: self interaction, compare LapSLP and LapSLP_closeglobal
+
+%  [uc unc uxx uxy uyy] = LapSLP_closeglobal(t,s,[],side); % matrix fill cases...
+  [uc unc] = LapSLP_closeglobal(t,s,[],side); 
+  tic, [uc uxc uyc uxxc uxyc uyyc] = LapSLP_closeglobal(t,s,[],side);
   fprintf('matrix fill (%.3g sec) & apply, max abs err in u, un, and [ux,uy]...:\n',toc)
   disp([max(abs(u-uc*tau)), max(abs(un-unc*tau)), max(abs(un - ((uxc*tau).*real(t.nx)+(uyc*tau).*imag(t.nx))))])
-  [u un] = LapSLP(t,s);   % compare matrix els....
+  fprintf('matrix fill (%.3g sec) & apply, max abs err in uxx, uxy, uyy...:\n',toc)
+  disp([max(abs(uxx-uxxc*tau)), max(abs(uxy-uxyc*tau)), max(abs(uyy-uyyc*tau))])
+
+  [u un uxx uxy uyy] = LapSLP(t,s);   % compare matrix els....
   fprintf('matrix fill, max abs matrix element diffs in u, un, and [ux,uy]...\n')
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
+  fprintf('matrix fill, max abs matrix element diffs in uxx, uxy, and uyy...\n')
+  disp([max(abs(uxx(:)-uxxc(:))), max(abs(uxy(:)-uxyc(:))), max(abs(uyy(:)-uyyc(:)))])
+
 end
 

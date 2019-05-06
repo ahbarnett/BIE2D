@@ -4,7 +4,7 @@ This set of codes solves boundary value problems for piecewise constant coeffici
 
 Main author: Alex Barnett
 
-Version: 20161205
+Version: 20190506
 
 Based on work from 2008-2016 including subsuming the integral-equation parts of [MPSpack](https://github.com/ahbarnett/mpspack), all of [LSC2D](http://math.dartmouth.edu/~ahb/software/lsc2d.tgz), and my [BIE tutorial](https://math.dartmouth.edu/~fastdirect/notes/quadrtut.zip).
 
@@ -12,13 +12,14 @@ Also includes the following contributions and influences:
 
   Bowei Wu - Stokes velocity extension from Laplace  
   Gary Marple - matrix versions of global close evaluation quadratures  
-  Nick Trefethen - Gaussian quadrature  
+  Nick Trefethen - Gaussian quadrature
+  Jun Wang - 2nd derivs of Cauchy, Laplace SLP, and traction of Stokes SLP  
 
 As of 2018, David Stein made a python implementation of most of BIE2D, including
 new fast versions of close evaluations, in his package [pyBIE2D](https://github.com/dbstein/pybie2d).
 
 
-### Installation
+### Installation and testing
 
 Download using `git`, `svn`, or as a zip (see green button above).
 
@@ -26,12 +27,14 @@ Open MATLAB in the top level (`BIE2D`) directory, and run `bie2dsetup` to add al
 
 Test by running `testall` which should produce lots of error outputs close to machine precision, figures, etc, and yet not crash.
 
+Many functions (eg close routines in kernels) have built-in self-tests run by calling without any arguments.
+
 Codes have not been tested on MATLAB versions prior to R2012a.
 
 
 ### Directories
 
-`kernels` : Laplace, Stokes, Helmholtz, Cauchy potential evaluation and matrix filling  
+`kernels` : Laplace, Stokes, Cauchy potential evaluation and matrix filling, including close-evaluation  
 `utils`   : general numerical and plot utilities  
 `test`    : test codes (other than built-in self-tests), figure-generating codes  
 `solvers` : 2D BVP solver example codes, also serve to test kernels  
@@ -53,7 +56,6 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 
 * decide where to build in switches for close eval - per target? (scf)
 * multiple closed curves (islands) helpers, use for dpls figs?
-* [decide priority] exploit incoming 0s for efficient Cau_closeglobal matrix filling, Lap, Sto too, needing special matrix-filling all the way up to avoid O(MN^2)
 * Green's representation theorem kernel tests for Lap, then Sto (ugh), so don't rely on BIE density soln for basic kernel tests
 * more BVP solver demos (eg bring over testStokesSDevalclose.m w/ all 4 BVPs)
 * FMM MEX interfaces
@@ -78,3 +80,4 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * finish bring over doublyperiodic, pres figs
 * srcsum2 for speed (targ sum not src, better for close eval)
 * initial close-touching expts
+* much accelerated the Cauchy close global matrix fill, using BLAS3 for all the O(N^3) parts, hence accelerating Laplace & Stokes (which call Cauchy in non-sparse way due to CSLP matrix being dense)
