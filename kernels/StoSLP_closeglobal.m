@@ -102,6 +102,7 @@ if nargout>1 % -------- want pressure, do its extension by rotating n_y to sigma
   % (todo: replace by BLAS3 mat-mat prod, faster)
   p = real(p);
 end
+%p = nan*u(1:M,:);
 
 %%%%%%--------------
 if nargout>2 % traction, down to 10-11 digits
@@ -148,11 +149,11 @@ for side = 'ie'
   %[T Tc abs(T-Tc)]   % testing
   fprintf('Sto SLP density eval (%.3g sec), max abs err in u cmpts, p, T cmpts:\n',toc)
   disp([max(abs(u-uc)), max(abs(p-pc)) , max(abs(T-Tc))])
-%  tic, [Ac Pc] = StoSLP_closeglobal(t,s,mu,[],side); % fill 20x slower than apply
-%  fprintf('matrix fill (%.3g sec) & apply, max abs err in u cmpts, p:\n',toc)
-%  disp([max(abs(u-Ac*tau)), max(abs(p-Pc*tau))])
-%  [A P] = StoSLP(t,s,mu);   % compare matrix els...
-%  fprintf('matrix fill, max abs matrix element diffs for u, p (more stringent, not needed):\n')
-%  disp([max(abs(A(:)-Ac(:))), max(abs(P(:)-Pc(:)))])
+  tic, [Ac Pc Tc] = StoSLP_closeglobal(t,s,mu,[],side); % fill 20x slower than apply
+  fprintf('matrix fill (%.3g sec) & apply, max abs err in u cmpts, p, T cmpts:\n',toc)
+  disp([max(abs(u-Ac*tau)), max(abs(p-Pc*tau)), max(abs(T-Tc*tau))])
+  [A P T] = StoSLP(t,s,mu);   % native compare matrix els...
+  fprintf('matrix fill, max abs matrix element diffs for u, p, T (more stringent, not needed):\n')
+  disp([max(abs(A(:)-Ac(:))), max(abs(P(:)-Pc(:))), max(abs(T(:)-Tc(:)))])
 end
 %profile off; profile viewer

@@ -49,9 +49,12 @@ function [u ux uy info] = LapDLP_closeglobal(t, s, tau, side)
 %
 % complexity O(N^2) for evaluation of v^+ or v^-, plus O(NM) for globally
 % compensated quadrature to targets
+%
+% Todo: fix self-test to check right taup diag cmpt. (why doesn't?)
 
 % Barnett 2013; multiple-column Gary Marple, 2014.
 % Repackaged Barnett 6/12/16, 6/27/16 col vec outputs. 6/29/16 bsxfun faster
+% 5/7/19 Barnett BLAS3 GEMM accel of naive N^2.n Cauchy sum -> 10x faster.
 
 if nargin==0, test_LapDLP_closeglobal; return; end
 N = numel(s.x); M = numel(t.x);      % # source, target nodes
@@ -62,14 +65,16 @@ n = size(tau,2);                     % # density columns
 % (note to future fortran/C versions: this also needs to be able to handle
 % complex input, real output, since the Stokes DLP feeds that in)
 vb = zeros(N,n);                    % alloc v^+ or v^- bdry data of holom func
-taup = zeros(N,n);                 % alloc tau'
+taup = zeros(N,n);                  % alloc tau'
 for k=1:n
-    taup(:,k) = perispecdiff(tau(:,k));  % numerical deriv of each dens
+  taup(:,k) = perispecdiff(tau(:,k));  % numerical deriv of each dens
 end
-for i=1:N, j = [1:i-1, i+1:N];      % skip pt i. Eqn (4.2) in [lsc2d]
-  vb(i,:) = sum(bsxfun(@times,bsxfun(@minus,tau(j,:),tau(i,:)),s.cw(j)./(s.x(j)-s.x(i))),1) + taup(i,:)*s.w(i)/s.sp(i);   % vectorized over cols (ahb)
-end
-vb = vb*(1/(-2i*pi));               % prefactor
+% BLAS3 sped-up version of Eqn (4.2) in [lsc2d], beats socks off bsxfun...
+Y = 1 ./ bsxfun(@minus,s.x,s.x.'); Y(diagind(Y))=0;  % j.ne.i Cauchy mat
+Y = Y .* (s.cw*ones(1,N));      % include complex wei over 1st index
+Y(diagind(Y)) = -sum(Y).';      % set diag to: -sum_{j.ne.i} w_j/(y_j-y_i)
+vb = Y.'*tau*(1/(-2i*pi));      % v @ nodes, size N*n, w/ prefactor
+vb = vb - (1/(1i*N))*taup;      % diagonal tau' correction, last term in (4.2).
 if side=='i', vb = vb - tau; end    % JR's add for v^-, cancel for v^+ (Eqn 4.3)
 info.vb = vb;                       % diagnostics
 
@@ -89,7 +94,8 @@ u = real(v); info.imv = imag(v);
 function test_LapDLP_closeglobal
 fprintf('check Laplace DLP close-eval quadr match native rule in far field...\n')
 verb = 0;       % to visualize
-s = wobblycurve(1,0.3,5,200); s.a = mean(s.x); if verb,figure;showsegment(s);end
+N = 400;
+s = wobblycurve(1,0.3,5,N); s.a = mean(s.x); if verb,figure;showsegment(s);end
 tau = -0.7+exp(sin(3*s.t));              % pick smooth density w/ nonzero mean
 nt = 100; t.nx = exp(2i*pi*rand(nt,1));  % target normals
 for side = 'ie'
@@ -110,3 +116,4 @@ for side = 'ie'
   fprintf('matrix fill, max abs matrix element diffs in u, un, and [ux,uy]...\n')
   disp([max(abs(u(:)-uc(:))), max(abs(un(:)-unc(:))), max(max(abs(un - (bsxfun(@times,uxc,real(t.nx))+bsxfun(@times,uyc,imag(t.nx))))))])
 end
+warning('this test seems not to test errors in the taup component! why?');
