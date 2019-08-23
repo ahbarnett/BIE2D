@@ -2,9 +2,9 @@ function g = perispecinterp(f,N)
 % PERISPECINTERP  resample periodically sampled function onto different grid.
 %
 % g = perispecinterp(f,N)
-% inputs:  f - (row or column) vector length n (must be even) of input samples
+% inputs:  f - (row or column) vector length n (must be even) of input samples,
 %          N - desired output number of samples, must be even
-% outputs: g - vector length N of interpolant (row or col, same size as f)
+% outputs: g - vector length N of interpolant (row or col, whichever f was)
 %
 % Note on phasing: the output and input grid first entries align (ie, as if they
 %  are both 0-indexed; note this matches setupquad).
@@ -13,6 +13,7 @@ function g = perispecinterp(f,N)
 % todo: odd cases.
 
 if nargin==0, test_perispecinterp; return; end
+
 n = numel(f);
 if N==n, g = f; return; end   % trivial case!
 if mod(N,2)~=0 || mod(n,2)~=0, warning('Both N and n must be even; sorry'); end
@@ -34,5 +35,5 @@ Ns = [142 42];    % upsample test then downsample test
 for i=1:2, N=Ns(i);
   g = perispecinterp(f(x),N);
   ge = f(2*pi*(0:N-1)/N);
-  norm(g - ge)
+  disp(norm(g - ge))
 end

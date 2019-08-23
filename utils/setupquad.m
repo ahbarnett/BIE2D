@@ -53,7 +53,7 @@ function s = setupquad(s, N)
 % Also see: PERISPECDIFF.
 
 % (c) Alex Barnett 10/8/14, name changed to avoid conflict w/ mpspack 6/12/16.
-% 0-indexed to match interp, 6/29/16
+% 0-indexed to match interp, 6/29/16. N field 8/15/19.
 
 if nargin==0, test_setupquad; return; end
 if nargin>1           % use N from args
@@ -67,6 +67,7 @@ elseif isfield(s,'x')
 else
   error('Need to provide at least s.Z and N, or s.x. Neither found!');
 end
+s.N = N;
 if isfield(s,'Zp'), s.xp = s.Zp(s.t); else, s.xp = perispecdiff(s.x); end
 if isfield(s,'Zpp'), s.xpp = s.Zpp(s.t); else, s.xpp = perispecdiff(s.xp); end
 % Now local stuff that derives from x, xp, xpp at each node...
