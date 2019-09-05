@@ -18,10 +18,10 @@ n = numel(f);
 if N==n, g = f; return; end   % trivial case!
 if mod(N,2)~=0 || mod(n,2)~=0, warning('Both N and n must be even; sorry'); end
 F = fft(f(:).');    % row vector
-if N>n              % upsample
+if N>n              % upsample (splitting last freq so if real, remains real)
   g = ifft([F(1:n/2) F(n/2+1)/2 zeros(1,N-n-1) F(n/2+1)/2 F(n/2+2:end)]);
-else                % downsample
-  g = ifft([F(1:N/2) F(end-N/2+1:end)]);
+else                % downsample (averaging last freq so if real, remains real)
+  g = ifft([F(1:N/2) (F(N/2+1)+F(end-N/2+1))/2 F(end-N/2+2:end)]);
 end
 g = g*(N/n);   % factor from the ifft
 if size(f,1)>size(f,2), g = g(:); end % make col vector
@@ -34,6 +34,7 @@ f = @(x) exp(sin(x));
 Ns = [142 42];    % upsample test then downsample test
 for i=1:2, N=Ns(i);
   g = perispecinterp(f(x),N);
+  fprintf('isreal(g)=%d\n',isreal(g))
   ge = f(2*pi*(0:N-1)/N);
   disp(norm(g - ge))
 end
