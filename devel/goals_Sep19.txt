@@ -1,29 +1,34 @@
-Release a simple maintainable BIE 2D Nystrom package to the world.
-Design notes, Alex Barnett 10/2/19.
+Release a simple maintainable BIE 2D Nystrom library to the world.
+        
+      Design notes, Alex Barnett 10/2/19.
 
 low-level (w/ SIMD accel for kernel eval, suggesting C/C++).
-      Keep simple:
+      Keep really simple:
       C or C++ w/ structs, no objects.
       or: fortran up to f90, no modules.
 
-plus high-level py wrappers to each of these, for driving, plotting, demos.
-(not matlab, since less drivable).
-But the low-level should contain everything.
+plus high-level py wrappers to each of these, only for driving, plotting, demos.
+(not matlab, or at least not immediately, since less professional).
+But the low-level should contain everything mathematical, and be self-sufficient
+so ppl can build lib on top of it.
+Why not py for whole thing? since the fortran/C crowd need to call it - it
+needs to be a low-level library which compiles on a bare-bones unix system.
 
 Choices:
 
 Panel format: like ytri, an array of structs containing nodes, weights,
       info about if abutts a corner. User-set p (based on log10(1/eps)).
       Lagrange interp from nodes.
-      Also, flag giving type: panel vs closed curve (latter handle by PTR,
-      bringing in BIE2D / pyBIE2D but in C).
+      Also, flag giving type: 'panel' vs 'closed curve' (latter handle by PTR,
+      bringing in BIE2D / pyBIE2D but recode in C).
 
       basic geom routines that tell you which panels have a target in their
       near field; return the sparse matrix of which panels are in each others
       near fields.
 
       Routines to adaptively split or merge panels based on geom, and on the
-      near-field of other panels.
+      near-field of other panels. Routine to read from TriWild, or file with
+      list of panel nodes in it (or MADMAX point format).
 
 Kernels: SIMD vectorized n-to-m direct apply (to charges), and matrix filler,
       for Laplace, Helmholtz, Stokes. Use fancy SIMD'ed 1/sqrt, etc.
@@ -51,29 +56,39 @@ Corners: allow up to general multi-junction of curved panels, done via either
       or, RCIP (see Helsing, Shidong).
 
 Utils: wrapper calling fortran FMM2D for relevant kernel, basic utils like
-      GMRES, bary Lagrange, quad nodes, etc. Ie, self-contained.
+      GMRES, bary Lagrange, quad nodes, etc. Ie, self-contained except for FMM.
       Should not depend on another git repo of utils.
 
 Other criteria: makefile should be able to compile all-low-level tests, indep
       of high-level lang interface.
 
-Tutorials: 
+Demos: dense direct solver, iterative solver w/ FMM, fast direct w/ some FDS
+      linked if installed. Read from external geom.
 
-Team:
+Required packaged: GCC or a compiler; FMMLIB2D.
+Optional packages: python (matplotlib, etc); some FDS.
+
+Tutorials: could be py demos
+
+
+Team: loosely, I'm making this up:
 Libin
-Alex
+Alex (can't start until Nov 3...)
 Manas
-Mike
-David S
-consult: Travis, Anil.
+Mike ?
+David S ?
+consult: Leslie, Travis, Anil (re FDS), ...
 
 
-To do: ----------------
+To do / discussion pts ----------------
 
 * commit to language, eg C/py or C++/py.
 
 * talk to Anil re his C++ rskel solver mat el input format.
 
 * understand py accessing C/C++ structs.
+
+* understand Manas switching off of FMM direct, set subtraction w/ special quad.
+(not urgent; can subtract off nearby plain pt FMM for now).
 
 * check can apply D' on-surf ok.
