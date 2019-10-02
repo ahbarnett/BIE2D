@@ -30,6 +30,8 @@ Panel format: like ytri, an array of structs containing nodes, weights,
       near-field of other panels. Routine to read from TriWild, or file with
       list of panel nodes in it (or MADMAX point format).
 
+      Nodes: x is 2-by-N node locations, not complex #s like in Matlab.
+
 Kernels: SIMD vectorized n-to-m direct apply (to charges), and matrix filler,
       for Laplace, Helmholtz, Stokes. Use fancy SIMD'ed 1/sqrt, etc.
       (save OpenMP for higher-level loops, eg to fill different mat blocks).
@@ -55,6 +57,10 @@ Corners: allow up to general multi-junction of curved panels, done via either
       or, Rachh-Serkh (in prog.) - nodes for range of powers handles curves.
       or, RCIP (see Helsing, Shidong).
 
+Block-sparse correction matrix: store A_corr in CRS block-wise sparse format
+      (ie, sparse pattern of dense p*p blocks - how handle real vs complex A?)
+      Then can sparse-matvec this plus FMM to apply BIE on surf.
+
 Utils: wrapper calling fortran FMM2D for relevant kernel, basic utils like
       GMRES, bary Lagrange, quad nodes, etc. Ie, self-contained except for FMM.
       Should not depend on another git repo of utils.
@@ -63,12 +69,13 @@ Other criteria: makefile should be able to compile all-low-level tests, indep
       of high-level lang interface.
 
 Demos: dense direct solver, iterative solver w/ FMM, fast direct w/ some FDS
-      linked if installed. Read from external geom.
+      linked if installed. Read from external geom. Block-precond solve.
+      EVP s/ Dir/Neu BCs, to replace MPSPACK.
 
-Required packaged: GCC or a compiler; FMMLIB2D.
+Required packages: GCC or a compiler; libm; FMMLIB2D; BLAS/LAPACK.
 Optional packages: python (matplotlib, etc); some FDS.
 
-Tutorials: could be py demos
+Tutorials: set of py demos
 
 
 Team: loosely, I'm making this up:
@@ -85,10 +92,11 @@ To do / discussion pts ----------------
 * commit to language, eg C/py or C++/py.
 
 * talk to Anil re his C++ rskel solver mat el input format.
+Also see for ideas, embryonic https://raw.githubusercontent.com/ahbarnett/bie2dquadlib/master/src/bie2dquadlib.h
 
 * understand py accessing C/C++ structs.
 
 * understand Manas switching off of FMM direct, set subtraction w/ special quad.
 (not urgent; can subtract off nearby plain pt FMM for now).
 
-* check can apply D' on-surf ok.
+* check can apply D' (hypersing) on-surf ok?
