@@ -1,0 +1,208 @@
+C library for 2D BIE                                       1/16/18
+====================
+
+Why?
+C needed for speed - already have MATLAB (Alex BIE2D),
+                     now py (David pyBIE2D) - both great for prototyping.
+Want production code.
+
+Laplace, Stokes; then Helmholtz etc later
+
+Handle two types of bdry chunks:
+* Global smooth closed curves - simplest, efficient if non adaptive.
+   PTR.  Assume N<1e4, ie non-fast methods ok for a single curve.
+* Panels - allows user to do adaptive, corner refine.
+   (assumed Gauss-L)
+
+quadr weights and nodes supplied by user - allows custom quadr someday.
+
+Overall approach:
+point FMM with local corrections. Possibly precomputation options.
+
+
+Methods:
+
+0) self-eval of each panel/curve.
+ * needs singular formulae specific to kernel & panel type.
+ * O(N^2) Kress for global.
+ * leslie's alpert quad given general kernel func call name.
+ * panels: call close eval which is Helsing.
+
+1) Far-field eval (native quadr scheme):
+* flag for apply to density
+(calls FMMLIB2D either direct -> move fmm away here.
+* same routine for panel or global: sum kernel times dens times wei over nodes
+
+2) Close-eval:
+* global: Barnett-Veerapaneni-Wu scheme for laplace & Stokes
+     (already in matlab BIE2D, but O(N^3) for mat fill due to lazy
+     Should be O(N^2), or O(N) if exploit Cauchy FMM etc. But N is assumed
+     small for each global curve)
+  [There is no Helmholtz close global scheme other than QBX]
+
+* panels: Helsing recurrences (port Alex MATLAB implementation plus Hai
+  Stokes matlab over it).  Are the best in 2D.
+Stokes extension of Laplace, for now - (could switch to 
+     Some tweaking of transition distance from recurrences to 2x-oversampled
+     
+     Helsing needs to know which side of a panel each targ is.
+
+0-2 all can be either output matirx or output potential/grad etc given
+density.
+
+
+3) higher-level C code to eval from all panels to all targs:
+FMM then local corrections eval.
+Needs targ list for each panel - Jun has quad-tree-based code for this.
+   [notes: lists of targs and panels. have MAX_TARGS_PER_PANEL=1e4
+   But what about a curve?]
+Use the max-h for each panel (or curve) to determine close/far.
+
+  This should have option for precompute phase to generate
+  quadr corr to FMM as sparse matrix. (optinally: tell FMM also to precompute).
+ 
+Could offer auto choice of which panel-panel pair needs close eval.
+
+Needs util - Jun has in fort - taking list of targs and panels
+and returns which targ indices are nr to each panel. In O(N).
+
+  3a) self-eval for GMRES iter.
+  3b) BIE->volume for eval.
+
+
+4) for now, driver/demo codes, or matlab demos, can set up all quadr needed.
+
+[Helmhotlz: also Helsing for panels, but for global, leave it?]
+
+
+Tutorial
+
+Eventually matlab and py will call these.
+ -> wrappers, but to what tools? Calling overhead too slow for a single panel
+ eval at 10 targs! Instead wrapper to a *list* of panels.
+
+
+
+DECISIONS:
+
+*) SLP, DLP alone, and combined SLP.sig + DLP.tau (for FMM and close-eval
+   efficiency).
+
+a) C for sanity
+w/ fortran-style pass by *reference* for integers and chars, as LAPACK.
+Best for call from fortran.
+CHECK ON THIS.
+
+a') C++ STL allowed for vectors.
+
+b) single-thread withing panel evals,
+since not worth omp at this low level loops?
+
+c) complex # for locations in R2? (did in matlab & py). No: confusing
+and no speed advantage.
+
+d) interlacing for speed: node list: x0,y0,x1,y1,... ? yes
+interlacing of vector cmpts in Stokes? good for FDS.
+matrix blocks - little 2x2, ie components ordered fast.
+
+so, need wrappers which flip between two orderings for densities, etc.
+Matrix block reordering also. Easy.
+
+d') Allocation: how much to allow per N pt?
+
+[e) interface request a subset of indices? (as FDS need). Can fake this for now
+by filling temporary segment array and calling with that.
+]
+
+Shravan: FDS is future for fixed geoms.
+
+f) output u_n (if flag target normal), vs u_1 and u_2 (if no targ normal)
+
+double* out1, double* out2.
+
+Sto: outputs are vel, pres, traction (assumes a target normal)
+[or stress tensor for later]
+
+...
+
+[y) want to wrap w/ periodizing]
+
+z) who? alex, david, manas?? andras (how much time?)  leslie jun.
+Mike, Zydrunas. Dhairya.
+
+aa) users: Shrvan's gp, Mike's gp,...
+
+
+PROBLEMS:
+
+* for large-N curves making a fast O(N) SLP close eval via B-W-V bary quadr
+doesn't seem easy - due to the fixing of the log branch cuts - seems
+intrinsically dense.
+FIX: use QBX - would be needed for Helm from a curve anyway.
+
+
+
+IDEAS:
+
+* precompute nearby interactions in FMM for speed - needs 100N RAM
+ - keep that as futre option for FMM - indep of prestoring quadr corrections.
+
+* speed up FMM from panels by prestoring matrices from panels to multipole
+exp, so FMM can take in MP epxs, faster. This could compress panels
+so FMM sees less input N.
+Hack into FMM to feed in MP and get out LE - project for someone -
+like FMPS.
+This would replaces the usual particle FMM interface.
+
+* real-time laplace BVP solver demo
+
+* summer workshop hacking bdry+vol integral.
+
+
+
+MOCK-UP:
+
+
+lapkernels.cpp:  %%%%%%%%%%%%%%%%%%%%%%%
+
+
+int lapSLPfar(int *meth, double* srcx, double* srcy, double...
+{
+
+switch *meth {
+case 1:
+     C code for direct sum
+
+case 2:        
+     call FMM2D fast eval code
+
+case 3:                     // useful for debug against case 1
+     call FMM2D direct eval code
+}
+
+int lapSLPmat(
+{
+returns dense matrix
+
+}
+
+int lapSLPclose_global
+
+optionl to prestore.
+
+int lapSLPclose_panel
+
+no prestoring.
+
+matrix out option.
+
+
+
+test_lapSLP.cpp:    %%%%%%%%%%%%%%%%%%%%%%%
+
+void main 
+{
+compare lapSLPmat to lapSLPfar
+compare close to far, using far targs
+GRF test, far, and close
+}
