@@ -1,0 +1,79 @@
+Release a simple maintainable BIE 2D Nystrom package to the world.
+Design notes, Alex Barnett 10/2/19.
+
+low-level (w/ SIMD accel for kernel eval, suggesting C/C++).
+      Keep simple:
+      C or C++ w/ structs, no objects.
+      or: fortran up to f90, no modules.
+
+plus high-level py wrappers to each of these, for driving, plotting, demos.
+(not matlab, since less drivable).
+But the low-level should contain everything.
+
+Choices:
+
+Panel format: like ytri, an array of structs containing nodes, weights,
+      info about if abutts a corner. User-set p (based on log10(1/eps)).
+      Lagrange interp from nodes.
+      Also, flag giving type: panel vs closed curve (latter handle by PTR,
+      bringing in BIE2D / pyBIE2D but in C).
+
+      basic geom routines that tell you which panels have a target in their
+      near field; return the sparse matrix of which panels are in each others
+      near fields.
+
+      Routines to adaptively split or merge panels based on geom, and on the
+      near-field of other panels.
+
+Kernels: SIMD vectorized n-to-m direct apply (to charges), and matrix filler,
+      for Laplace, Helmholtz, Stokes. Use fancy SIMD'ed 1/sqrt, etc.
+      (save OpenMP for higher-level loops, eg to fill different mat blocks).
+
+Quadrature: use 3-nei-panel to 1-panel auxiliary nodes for smooth + log.smooth,
+      like Bremer. These can be from gen. Gauss. quad. (precomputed tables).
+      Using all those auxiliary nodes will be fast since use good direct kernel.
+      Why not Helsing, QBX, etc?: GGQ handles any kernel w/o having to do the
+      analytic split. Allows same code to work w/ mod Helm, axisymm, etc.
+      Still gets you say 1e-11, but not 1e-14.
+      Speed of everything about the same in 2D anyway.
+
+Input format: read various curve inputs or analytic formulae to spit out
+      list of panels.
+
+Close-eval: plain per-target adaptive for now, since works for every kernel,
+      and fast if coded in C (not many targets are very close).
+      Also, fill A_{I,J} block from panel to set of targets, could be on-surf
+      or self.
+
+Corners: allow up to general multi-junction of curved panels, done via either
+      plain dyadic refinement (more a tutorial option)
+      or, Rachh-Serkh (in prog.) - nodes for range of powers handles curves.
+      or, RCIP (see Helsing, Shidong).
+
+Utils: wrapper calling fortran FMM2D for relevant kernel, basic utils like
+      GMRES, bary Lagrange, quad nodes, etc. Ie, self-contained.
+      Should not depend on another git repo of utils.
+
+Other criteria: makefile should be able to compile all-low-level tests, indep
+      of high-level lang interface.
+
+Tutorials: 
+
+Team:
+Libin
+Alex
+Manas
+Mike
+David S
+consult: Travis, Anil.
+
+
+To do: ----------------
+
+* commit to language, eg C/py or C++/py.
+
+* talk to Anil re his C++ rskel solver mat el input format.
+
+* understand py accessing C/C++ structs.
+
+* check can apply D' on-surf ok.
