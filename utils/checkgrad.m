@@ -29,3 +29,4 @@ a = [1;-1.6];          % the const grad
 f = @(x) 7.0 + a(1)*x(1,:) + a(2)*x(2,:);  % linear func
 df = @(x) repmat(a,[1 size(x,2)]);
 checkgrad(f,df)
+checkgrad(f,df,[2;3])

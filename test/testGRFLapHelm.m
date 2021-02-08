@@ -20,7 +20,8 @@ for k=[0 10]                  % ........ wavenumbers to cover Lap, Helm cases
     ux = @(z) real(fpholom(z)); uy = @(z) -imag(fpholom(z));  % partials, sign!
   else
     fprintf('Helmholtz (k=%g)...\n',k)
-    SLP = @(t,s) HelmSLP(k,t,s);  DLP = @(t,s) HelmDLP(k,t,s);     % wrap in k
+    SLP = @(varargin) HelmSLP(k,varargin{:});       % bake in k
+    DLP = @(varargin) HelmDLP(k,varargin{:});
     ang = exp(1i*pi*0.7);                 % arb unit direction (as complex)
     u = @(z) exp(1i*k*real(ang'.*z));     % plane wave
     ux = @(z) 1i*k*real(ang)*u(z); uy = @(z) 1i*k*imag(ang)*u(z);  % partials
