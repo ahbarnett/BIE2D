@@ -17,13 +17,15 @@ function [u un uxx uxy uyy] = LapSLP(t,s,dens)
 %  density vector to the vector of potentials (A), and possibly target-normal
 %  derivatives (An) and Hessians (Axx Axy Ayy).
 %
-% Tested by: LAPINTDIRBVP
-% apparently I should add the sameseg situtation for traction here
-% yikes
+% If t is the same segment as s, the Kress rule for self-evaluation is used,
+%  which assumes s is a global periodic trapezoid rule.
 %
-% Crude native quadr and O(NM) RAM for now
-% todo: make O(N+M) & incorporate Gary's scf
+% Tested by: LAPINTDIRBVP
 
+% Crude native quadr and O(NM) RAM for now
+% todo: 1) make O(N+M) & incorporate Gary's scf
+% 2) add the sameseg situation for traction (2nd derivs) here, ugh.
+%
 % Barnett 6/27/16; Jun Wang added 2nd derivs, Oct 2018.
   
 if nargout==1

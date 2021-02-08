@@ -16,6 +16,9 @@ function [u un] = LapDLP(t,s,dens)
 %  density vector to the vector of potentials (A) and target-normal derivatives
 %  (An).
 %
+% If t is the same segment as s, the Kress rule for self-evaluation is used,
+%  which assumes s is a global periodic trapezoid rule.
+%
 % Tested by: LAPINTDIRBVP
 
 % Crude native quadr and O(NM) RAM for now. Obviously C/Fortran would not

@@ -1,6 +1,5 @@
 % complete set of tests for BIE2D. All should produce small numbers &
 % occasional figures and tables.
-% Barnett 6/12/16
 
 % utils
 perispecdiff
@@ -9,7 +8,8 @@ setupquad
 showsegment
 wobblycurve
 
-% kernels: basics
+% kernels: basics (native and self rules)
+testGRFLapHelm
 testStokernels
 
 % kernels: close eval
