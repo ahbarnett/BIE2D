@@ -4,7 +4,7 @@ function [u un] = HelmDLP(k,t,s,dens)
 % This evaluates the 2D Helmholtz double-layer potential for the density tau,
 %
 %   u(x) = (i/4) int_gamma (d/dn_y) H^{(1)}_0(kr) tau(y) ds_y,  where r:=x-y
-%   x,y in R2,
+%                                                               x,y in R2,
 %
 %  using the native quadrature rule on the source segment gamma, where point
 %  values of tau are given. k is the wavenumber (>0).

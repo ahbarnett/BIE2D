@@ -4,7 +4,7 @@ function [u un] = LapDLP(t,s,dens)
 % This evaluates the 2D Laplace double-layer potential for the density tau,
 %
 %   u(x) = (1/2pi) int_gamma (n_y.(x-y))/r^2 tau(y) ds_y,
-%   where r:=x-y,  x,y in R2,
+%                                                    where r:=x-y,  x,y in R2,
 %
 %  using the native quadrature rule on the source segment, where point
 %  values of tau are given.
@@ -19,7 +19,7 @@ function [u un] = LapDLP(t,s,dens)
 % If t is the same segment as s, the Kress rule for self-evaluation is used,
 %  which assumes s is a global periodic trapezoid rule.
 %
-% Tested by: LAPINTDIRBVP
+% Tested by: TESTGRFLAPHELM, LAPINTDIRBVP
 
 % Crude native quadr and O(NM) RAM for now. Obviously C/Fortran would not
 %  form matrices for the density eval case, rather direct sum w/o/ wasting RAM.

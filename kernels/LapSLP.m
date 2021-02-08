@@ -20,7 +20,7 @@ function [u un uxx uxy uyy] = LapSLP(t,s,dens)
 % If t is the same segment as s, the Kress rule for self-evaluation is used,
 %  which assumes s is a global periodic trapezoid rule.
 %
-% Tested by: LAPINTDIRBVP
+% Tested by: TESTGRFLAPHELM, LAPINTDIRBVP
 
 % Crude native quadr and O(NM) RAM for now
 % todo: 1) make O(N+M) & incorporate Gary's scf

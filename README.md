@@ -4,7 +4,7 @@ This set of codes solves boundary value problems for piecewise constant coeffici
 
 Main author: Alex Barnett
 
-Version: 20190506
+Version: 20210207
 
 Based on work from 2008-2016 including subsuming the integral-equation parts of [MPSpack](https://github.com/ahbarnett/mpspack), all of [LSC2D](http://math.dartmouth.edu/~ahb/software/lsc2d.tgz), and my [BIE tutorial](https://math.dartmouth.edu/~fastdirect/notes/quadrtut.zip).
 
@@ -56,19 +56,18 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 
 * decide where to build in switches for close eval - per target? (scf)
 * multiple closed curves (islands) helpers, use for dpls figs?
-* Green's representation theorem kernel tests for Lap, then Sto (ugh), so don't rely on BIE density soln for basic kernel tests
+* Green's representation theorem kernel tests for Stokes kernels (easy)
 * more BVP solver demos (eg bring over testStokesSDevalclose.m w/ all 4 BVPs)
 * FMM MEX interfaces
 * [long-term] Convert whole thing to C/Fortran libraries
 * [long term] basic fast direct solver examples - jj index list fields in s,t?
 * kd-tree for close-evaluation lists (Marple). Need non-Toolbox kd-tree.
 * [low-priority] Alpert and other options for log-singular kernels
-* Helmholtz bring in from MPSpack
 * panels (Helsing-style), corners with panels, bring in from various tests
 * [long term] MEX interface to Rachh QBX/FMM ?
 * [low-priority] bring in singlyperiodic, get Adrianna codes
 
-### Done
+### Done / Changelog
 
 * Cau_closeglobal simpler uses "interpolate the derivative", exterior S-W form
 * cleaner kernel interface without mat or eval suffices
@@ -81,3 +80,5 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * srcsum2 for speed (targ sum not src, better for close eval)
 * initial close-touching expts
 * much accelerated the Cauchy close global matrix fill, using BLAS3 for all the O(N^3) parts, hence accelerating Laplace & Stokes (which call Cauchy in non-sparse way due to CSLP matrix being dense)
+* Helmholtz kernels including S and D self-eval from MPSpack, far+derivs
+* Green's representation theorem off- and on-surf kernel tests for Lap, Helm
