@@ -52,12 +52,10 @@ if ~ss                                 % plain far-field rule
   A = besselh(1,k*r) .* cosker;
   A = bsxfun(@times, A, (1i*k/4)*s.w(:)');  % prefactor & wei
 else
-  %***
-  A = -log(abs(d)) + circulant(0.5*log(4*sin(pi*(0:N-1)/N).^2));   % peri log
-  A(diagind(A)) = -log(s.sp);                       % diagonal limit
-  m = 1:N/2-1; Rjn = ifft([0 1./m 2/N 1./m(end:-1:1)])/2;  % Kress Rj(N/2)/4pi
-  A = A/N + circulant(Rjn); % includes SLP prefac 1/2pi. Kress peri log matrix L
-  A = bsxfun(@times, A, s.sp.');   % do speed factors (2pi/N weights already)
+  A = besselh(1,k*r) .* cosker;
+  A = bsxfun(@times, A, (1i*k/4)*s.w(:)');  % prefactor & wei
+  A(diagind(A)) = -(s.cur.*s.w)/(4*pi);    % should be O(1/N^3)
+  %***   wrong for now
 end
 if nargout>=2                      % apply T (code from mpspack/@layerpot/T.m)
   if ~ss

@@ -48,13 +48,17 @@ r = abs(d);
 ss = sameseg(t,s);
 if ~ss                                 % plain far-field rule
   A = bsxfun(@times, besselh(0,k*r), (1i/4)*s.w(:)');  % prefactor & wei
-else
-  % ***
-  A = -log(abs(d)) + circulant(0.5*log(4*sin(pi*(0:N-1)/N).^2));   % peri log
-  A(diagind(A)) = -log(s.sp);                       % diagonal limit
-  m = 1:N/2-1; Rjn = ifft([0 1./m 2/N 1./m(end:-1:1)])/2;  % Kress Rj(N/2)/4pi
-  A = A/N + circulant(Rjn); % includes SLP prefac 1/2pi. Kress peri log matrix L
-  A = bsxfun(@times, A, s.sp.');   % do speed factors (2pi/N weights already)
+else                                  % Martensen-Kussmaul from MPSpack
+  S1 = triu(besselj(0,k*triu(r,1)),1);  % use symmetry (arg=0 is fast)
+  S1 = -(1/4/pi)*(S1.'+S1);     % next fix it as if diag(r) were 0
+  S1(diagind(S1)) = -(1/4/pi);  % S1=M_1/2 of Kress w/o speed fac
+  A = triu(besselh(0,k*triu(r,1)),1);         % use symm of r matrix for speed
+  A = (1i/4)*(A.'+A) - S1.*circulant(log(4*sin(pi*(0:N-1)/N).^2)); % A=D2=M_2/2 w/o speed fac
+  eulergamma = -psi(1);         % now set diag vals Kress M_2(t,t)/2
+  A(diagind(A)) = 1i/4 - eulergamma/2/pi - log((k*s.sp).^2/4)/4/pi;
+  %figure; imagesc(real(A)); colorbar; % diag matches (smooth)?
+  m = 1:N/2-1; Rjn = -2*pi*ifft([0 1./m 2/N 1./m(end:-1:1)]);  % Kress Rj(N/2)
+  A = bsxfun(@times, circulant(Rjn).*S1 + A*(2*pi/N), s.sp');
 end
 if nargout>=2                      % apply D^T (flips sign and src deriv)
   if ~ss
