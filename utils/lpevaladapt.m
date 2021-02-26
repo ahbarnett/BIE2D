@@ -19,6 +19,7 @@ function u = lpevaladapt(x,kerfun,densfun,c,tol)
 
 % Barnett 2/25/21
 if nargin<5, tol=1e-10; end
+warning('off','MATLAB:integral:MaxIntervalCountReached');
 
 % integrand = kernel(x,y,ny) * speed (Jacobean from param to arclength) * dens
 u = integral(@(t) kerfun(x,c.Z(t),-1i*c.Zp(t)./abs(c.Zp(t))).*abs(c.Zp(t)).*densfun(t),c.paramdom(1),c.paramdom(2),'abstol',tol,'reltol',tol);
