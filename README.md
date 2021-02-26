@@ -34,7 +34,7 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 
 ### Directories
 
-`kernels` : Laplace, Stokes, Cauchy potential evaluation and matrix filling, including close-evaluation  
+`kernels` : Laplace, Stokes, Cauchy, Helmholtz potential evaluation and matrix filling, including close-evaluation  
 `utils`   : general numerical and plot utilities  
 `test`    : test codes (other than built-in self-tests), figure-generating codes  
 `solvers` : 2D BVP solver example codes, also serve to test kernels  
@@ -82,3 +82,4 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * much accelerated the Cauchy close global matrix fill, using BLAS3 for all the O(N^3) parts, hence accelerating Laplace & Stokes (which call Cauchy in non-sparse way due to CSLP matrix being dense)
 * Helmholtz kernels including S and D self-eval from MPSpack, far+derivs
 * Green's representation theorem off- and on-surf kernel tests for Lap, Helm
+* Reference kernel implementations for Laplace, Helmholtz; tests against them
