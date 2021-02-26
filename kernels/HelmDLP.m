@@ -19,10 +19,11 @@ function [u un] = HelmDLP(k,t,s,dens)
 % If t is the same segment as s, the Kress rule for self-evaluation is used,
 %  which assumes s is a global periodic trapezoid rule.
 %
-% Tested by: TESTGRFLAPHELM
+% Tested by: calling without arguments, and by TESTGRFLAPHELM
 
 % Crude O(NM) RAM for now. Barnett 2/7/21.
-  
+if nargin==0, test_HelmDLP; return; end
+ 
 if nargout==1
   u = HelmDLPmat(k,t,s);
   if nargin>3 && ~isempty(dens)
@@ -75,3 +76,16 @@ if nargout>=2                      % apply T (code from mpspack/@layerpot/T.m)
   end
   An = bsxfun(@times, An, (1i*k/4)*s.w(:)');  % prefactor & wei
 end
+
+
+%%%%
+function test_HelmDLP         % only tests pot (ie, value), against reference
+b = wobblycurve(1,0.3,5,400); % curve struct
+k = 10;                       % wavenumber
+t.x = 1.5+1i;                 % far
+densfun = @(t) 1+sin(2+4*t+cos(t)) + 1i*sin(1+3*t);  % must be 2pi-per
+ker = @(varargin) HelmDLPpotker(k,varargin{:});      % hide the 1st arg (k)
+ua = lpevaladapt(t.x,ker,densfun,b,1e-12);
+dens = densfun(b.t);          % eval dens at nodes
+u = HelmDLP(k,t,b,dens);
+disp(max(abs(u-ua)))
