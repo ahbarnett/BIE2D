@@ -33,10 +33,10 @@ for k=-n/2:-1, z = z + zhat(k+1+n)*exp(1i*k*t); end    % neg freqs
 
 %%%%%%
 function test_perispecinterparb
-n = 70;          % input grid: for below f, expect err~exp(-striphalfwid*n/2)
-                 % (see R. Kress, Linear Integral Equations, Thm 11.5)
+n = 70;          % input grid: for below f, expect err ~ exp(-striphalfwid*n/2)
+                 % See R. Kress, Linear Integral Equations (1989), Thm. 11.5.
 x = 2*pi*(0:n-1)/n;
-f = @(x) cot(x+1i);   % complex test func, analytic in striphalfwid=1
-t = 2*pi*rand(20,1);          % targets
+f = @(x) cot((x+2.0+1i)/2); % generic complex 2pi-per func, holom striphalfwid=1
+t = 2*pi*rand(20,1);      % targets
 [g gfun] = perispecinterparb(f(x),t);
 disp(max(abs(g - f(t))) / max(abs(g)))   % rel max err, cf exp(-1.0*n/2)

@@ -1,4 +1,5 @@
-Laplace, Stokes direct summation kernels, and global close-eval quadratures.
+Laplace, Helmholtz, and Stokes direct summation kernels, and global
+close-eval quadratures for Laplace and Stokes.
 The latter are built on the Cauchy close evaluation: Cau_closeglobal.m
 
 cauchycompeval_lsc2d.m : legacy method from LSC2D paper; superceded by

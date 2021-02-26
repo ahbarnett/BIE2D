@@ -4,7 +4,7 @@ function s = setupquad(s, N)
 % s = setupquad(s,N) where s is a struct containing a parametrization of the
 %  curve in the form of function s.Z from [0,2pi) to the complex plane, uses
 %  this to build the set of nodes, weights, speeds, curvatures, etc, using the
-%  N-node PTR on [0,2pi).
+%  N-node periodic trapezoid rule (PTR) on [0,2pi).
 %
 % s = setupquad(s) where s contains at least the field s.x (column vector of
 %  N node locations) generates all other fields by spectral differentiation.
@@ -38,6 +38,7 @@ function s = setupquad(s, N)
 %      s.w "speed weights" (2pi/N)*s.sp
 %      s.cw velocity weights (ie complex speed)
 %      s.cur curvatures kappa(s_j) (inverse bending radius)
+%      s.paramdom min and max parameter values, ie [0, 2pi]
 %
 % Example usage:
 %
@@ -77,6 +78,7 @@ s.nx = -1i*s.tang;
 s.cur = -real(conj(s.xpp).*s.nx)./s.sp.^2;  % recall real(conj(a)*b) = "a dot b"
 s.w = (2*pi/N)*s.sp;
 s.cw = (2*pi/N)*s.xp;  % complex weights (incl complex speed)
+s.paramdom = [0, 2*pi];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 function test_setupquad                % not very extensive! Barnett 10/8/14

@@ -19,14 +19,15 @@ function [u un] = LapDLP(t,s,dens)
 % If t is the same segment as s, the Kress rule for self-evaluation is used,
 %  which assumes s is a global periodic trapezoid rule.
 %
-% Tested by: TESTGRFLAPHELM, LAPINTDIRBVP
+% Tested by: calling without arguments, and TESTGRFLAPHELM, LAPINTDIRBVP
 
 % Crude native quadr and O(NM) RAM for now. Obviously C/Fortran would not
 %  form matrices for the density eval case, rather direct sum w/o/ wasting RAM.
 % todo: make O(N+M) & incorporate Gary's scf
 
 % Barnett 6/12/16. Interface change 6/27/16. 
-  
+if nargin==0, test_LapDLP; return; end
+
 if nargout==1
   u = LapDLPmat(t,s);            % local matrix filler
   if nargin>2 && ~isempty(dens)
@@ -64,3 +65,14 @@ if nargout>1     % deriv of double-layer. Not correct for self-interaction.
   An = -real(csry.*csrx)./((r.^2).^2);    % divide is faster than bxsfun here
   An = bsxfun(@times, An, (1/2/pi)*s.w(:)');   % prefac & quadr wei
 end
+
+
+%%%%
+function test_LapDLP           % only tests pot (ie, value), against reference
+b = wobblycurve(1,0.3,5,400);
+t.x = 1.5+1i;   % far
+densfun = @(t) 1+sin(2+4*t+cos(t));  % must be 2pi-per
+ua = lpevaladapt(t.x,@LapDLPpotker,densfun,b,1e-12);
+dens = densfun(b.t);          % eval dens at nodes
+u = LapDLP(t,b,dens);
+disp(max(abs(u-ua)))

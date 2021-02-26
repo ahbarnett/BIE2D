@@ -20,14 +20,15 @@ function [u un uxx uxy uyy] = LapSLP(t,s,dens)
 % If t is the same segment as s, the Kress rule for self-evaluation is used,
 %  which assumes s is a global periodic trapezoid rule.
 %
-% Tested by: TESTGRFLAPHELM, LAPINTDIRBVP
+% Tested by: calling without arguments, also TESTGRFLAPHELM, LAPINTDIRBVP
 
 % Crude native quadr and O(NM) RAM for now
-% todo: 1) make O(N+M) & incorporate Gary's scf
-% 2) add the sameseg situation for traction (2nd derivs) here, ugh.
+% Todo: 1) make O(N+M) & incorporate Gary's scf (splits: self, Cauchy, far).
+% 2) add the sameseg (self-eval) situation for traction (2nd derivs) here, ugh.
 %
 % Barnett 6/27/16; Jun Wang added 2nd derivs, Oct 2018.
-  
+if nargin==0, test_LapSLP; return; end  
+
 if nargout==1
   u = LapSLPmat(t,s);
   if nargin>2 && ~isempty(dens)
@@ -92,3 +93,14 @@ if nargout>=3
   A12=bsxfun(@times, A12, s.w(:)');
   A22=bsxfun(@times, A22, s.w(:)');
 end
+
+
+%%%%
+function test_LapSLP           % only tests pot (ie, value), against reference
+b = wobblycurve(1,0.3,5,400);
+t.x = 1.5+1i;   % far
+densfun = @(t) 1+sin(2+4*t+cos(t));  % must be 2pi-per
+ua = lpevaladapt(t.x,@LapSLPpotker,densfun,b,1e-12);
+dens = densfun(b.t);          % eval dens at nodes
+u = LapSLP(t,b,dens);
+disp(max(abs(u-ua)))
