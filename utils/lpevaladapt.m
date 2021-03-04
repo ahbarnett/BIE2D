@@ -22,4 +22,6 @@ if nargin<5, tol=1e-10; end
 warning('off','MATLAB:integral:MaxIntervalCountReached');
 
 % integrand = kernel(x,y,ny) * speed (Jacobean from param to arclength) * dens
-u = integral(@(t) kerfun(x,c.Z(t),-1i*c.Zp(t)./abs(c.Zp(t))).*abs(c.Zp(t)).*densfun(t),c.paramdom(1),c.paramdom(2),'abstol',tol,'reltol',tol);
+u = integral(@(t) kerfun(x,c.Z(t),-1i*c.Zp(t)./abs(c.Zp(t))).*abs(c.Zp(t)).*densfun(t),c.paramdom(1),c.paramdom(2),'abstol',1e-12,'reltol',tol);
+% the worst of abstol and |Q|*reltol is taken; according to help integral
+% if push to 1e-13 or below, it requests >1e5 nodes, v slow :(

@@ -12,7 +12,7 @@ Also includes the following contributions and influences:
 
   Bowei Wu - Stokes velocity extension from Laplace  
   Gary Marple - matrix versions of global close evaluation quadratures  
-  Nick Trefethen - Gaussian quadrature
+  Nick Trefethen - Gaussian quadrature  
   Jun Wang - 2nd derivs of Cauchy, Laplace SLP, and traction of Stokes SLP  
 
 As of 2018, David Stein made a python implementation of most of BIE2D, including

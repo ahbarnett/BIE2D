@@ -27,12 +27,14 @@ g = gfun(t);
 function z = fourierseries(zhat,t)   % eval cmplx F series (t any shape matrix)
 % *** todo: block out if t*n is too large, to keep in fast L2 cache?
 sizet = size(t); t = t(:); zhat = zhat(:);                     % col vecs
+% disp(sizet)   % useful to debug "integral" adaptive integration (no other way)
 n = numel(zhat);                 % must be even for now
 z = 0*t + zhat(1);               % allocate and zero mode
 % use outer products in the trig args... and zero-pad for k=-n/2
 z = z + cos(t*(1:n/2)) * (zhat(2:n/2+1) + [zhat(end:-1:n/2+2);0]);
 z = z + sin(t*(1:n/2)) * (1i*zhat(2:n/2+1) - 1i*[zhat(end:-1:n/2+2);0]);
 z = reshape(z,sizet);
+
 
 %%%%%%
 function test_perispecinterparb
