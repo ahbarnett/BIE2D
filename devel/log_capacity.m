@@ -20,8 +20,8 @@ for R = [0.9, 1]    % loop over two circle radii, 2nd being special (log cap=1)
   ss = svd(A); fprintf('\tSto:'); fprintf('\t%.3g',ss(end-2:end)); fprintf('\n')
   nv = [real(s.nx);imag(s.nx)];   % col vec of the normals
   %norm(A*nv)                     % check it's R sing vec of A
-  A = A + [1;zeros(2*n-1,1)] * nv';    % works
-  %A = A + rand(2*n);  % works
+  %A = A + [1;zeros(2*n-1,1)] * nv';    % works
+  A = A + rand(2*n,1)*rand(1,2*n);  % works
   %A = A + [.3*ones(n,1);-0.9*ones(n,1)] * nv';  % fails, orthog to L sing vec
   ss = svd(A); fprintf('\tSto+r1:'); fprintf('\t%.3g',ss(end-2:end)); fprintf('\n')
 end

@@ -10,16 +10,24 @@ function [u,p,T] = StoDLP(t,s,mu,dens)
 % [u,p,T] = StoDLP(t,s,mu,dens) evaluates the double-layer density dens,
 %  returning flow velocity u, pressure p, and target-normal traction T.
 %
-% The normalization is as in Sec 2.3 of [HW], and [Mar15].
+% The velocity potential is, given fixed viscosity mu>0, and density tau,
+% on a source curve gamma, at a target point x,
+%
+%  u(x) = int_gamma G(x-y) tau(y) ds_y                    x,y in R2
+%
+%     with 2x2 matrix kernel G(r) = (1/pi) (r⊗r)(r.n_y)/|r|^4
+%
+%  The native quadrature rule of the source curve s is used.
+%  For formulae for pressure and traction, see Sec 2.3 of [HW], and [Mar16].
 %
 % References:
 %  [HW]    "Boundary Integral Equations", G. C. Hsiao and W. L. Wendland
 %          (Springer, 2008).
 %
-%  [Mar15] "A fast algorithm for simulating multiphase flows through periodic
+%  [Mar16] "A fast algorithm for simulating multiphase flows through periodic
 %          geometries of arbitrary shape," G. Marple, A. H. Barnett,
-%          A. Gillman, and S. Veerapaneni, in press, SIAM J. Sci. Comput.
-% 	   https://arXiv.org/abs/1510.05616
+%          A. Gillman, and S. Veerapaneni, SIAM J. Sci. Comput. 38(5), B740-772
+%          (2016). https://arXiv.org/abs/1510.05616
 %
 % Inputs: (see setupquad for source & target struct definitions)
 %  s = source segment struct with s.x nodes, s.w weights on [0,2pi),
@@ -36,11 +44,14 @@ function [u,p,T] = StoDLP(t,s,mu,dens)
 %
 % Notes: 1) no self-evaluation for P or T.
 %
-% To test use STOINTDIRBVP
+% To test call without arguments; also see STOINTDIRBVP
 %
 % See also: SETUPQUAD
 
 % Barnett 6/13/16, 6/27/16
+% vel self-test 4/26/21.
+% Todo: * flip args order so mu always first?
+if nargin==0, test_StoDLP; return; end  
 
 if numel(mu)~=1, error('mu must be a scalar'); end
 if nargout==1
@@ -107,3 +118,15 @@ if nargout>2           % traction, my derivation of formula (no self-int)
       kron(ones(2),dy.*irr) .* [d1.*nx1, d1.*nx2; d2.*nx1, d2.*nx2];
   T = bsxfun(@times, T, (mu/pi)*[s.w(:)' s.w(:)']);    % prefac & quadr wei
 end
+
+
+%%%%
+function test_StoDLP           % only tests vel against reference
+b = wobblycurve(1,0.3,5,400);
+mu = 0.8;       % viscosity
+t.x = 1.5+1i;   % far
+densfun = @(t) [1+sin(2+4*t+cos(t));-0.5+cos(3*t)];  % must be 2pi-per, vector
+ua = lpevaladapt(t.x,@(x,y,ny) StoDLPvelker(mu,x,y,ny), densfun,b,1e-12);
+dens = densfun(b.t);          % eval dens at nodes
+u = StoDLP(t,b,mu,dens);
+disp(max(abs(u(:)-ua(:))))

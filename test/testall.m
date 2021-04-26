@@ -14,6 +14,8 @@ LapSLP
 LapDLP
 HelmSLP
 HelmDLP
+StoSLP
+StoDLP
 testGRFLapHelm
 testStokernels
 
