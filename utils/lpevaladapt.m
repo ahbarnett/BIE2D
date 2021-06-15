@@ -13,7 +13,7 @@ function u = lpevaladapt(x,kerfun,densfun,c,tol)
 %           Zp - (function handle) parameter-derivative of Z
 %   tol - tolerance (if omitted: 1e-10)
 %
-% Scalar only for now, and single target
+% Note: Single target for now, scalar/vector densities.
 %
 % See kernels/LapSLP for a test.
 
