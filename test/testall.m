@@ -18,6 +18,7 @@ StoSLP
 StoDLP
 testGRFLapHelm
 testStokernels
+testGRFSto
 
 % kernels: close eval
 Cau_closeglobal
