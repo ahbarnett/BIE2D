@@ -3,15 +3,13 @@ function G = StoSLPtracker(mu,x,nx,y,ny)
 %
 % G = StoSLPtracker(mu,x,nx,y,ny) evaluates
 %
-%   G(x,y) = (1/pi) (r⊗r) (r.n_x)/ |r|^4 ,  where r:=x-y,  x,y in R2
+%   G(x,y) = (-1/pi) (r⊗r) (r.n_x)/ |r|^4 ,  where r:=x-y,  x,y in R2
 %   where r:=x-y,  x,y in R2
 %
 % target x, unit target normal nx, and source y, are given as complex
 % numbers (C \equiv R2). source normal ny unused.
 % 
 % Mostly useful as reference, & for adaptive integration
-%
-% Note: *** to do: debug why my papers say there's a sign change from D^T here
 
 % Barnett 6/28/21
-G = StoDLPvelker(mu,y,x,nx);    % swaps x <-> y
+G = StoDLPvelker(mu,y,x,nx);    % swaps x <-> y, which also applies minus sign!
