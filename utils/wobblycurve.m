@@ -21,6 +21,7 @@ s.Zp = @(t) (Rp(t) + 1i*R(t)).*exp(1i*t);
 s.Zpp = @(t) (Rpp(t) + 2i*Rp(t) - R(t)).*exp(1i*t);
 s = setupquad(s,N);
 s.inside = @(z) abs(z)<R(angle(z));
+s.a = 0;                               % a far interior pt
 
 %%%%%%%
 function test_wobblycurve
