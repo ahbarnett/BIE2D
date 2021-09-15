@@ -84,3 +84,4 @@ Codes have not been tested on MATLAB versions prior to R2012a.
 * Helmholtz kernels including S and D self-eval from MPSpack, far+derivs
 * Green's representation theorem off- and on-surf kernel tests for Lap, Helm
 * Reference kernel implementations for Laplace, Helmholtz; tests against them
+* Basic Laplace panel GRF test
