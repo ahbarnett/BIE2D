@@ -5,8 +5,12 @@ function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
 %  returns numel(t.x)-by-numel(s.x) matrix which maps DLP values at the nodes
 %  s.x to potential at the targets t.x, both given as lists of
 %  points in the complex plane.
+%  The matrix is the quadrature approximation to evaluation of
+%    Re (1/(2i*pi)) * int_Gamma sigma(y)/(y-x) dy,
+%  ie the 2D Laplace DLP acting on real densities (not the Cauchy complex val).
 %
-% [A Az] = LapDLP_closepanel(t,s,a,b) also gives target gradient
+% [A Az] = LapDLP_closepanel(t,s,a,b) also gives target complex gradient
+%   *** untested since converted to Re part *** TO FIX
 % [A Az Azz] = LapDLP_closepanel(t,s,a,b) also gives target gradient and Hessian (needs t.nx)
 % [A A1 A2 A3 A4] = LapDLP_closepanel(t,s,a,b) also gives target x,y-derivs
 %                   grad_t(D) = [A1, A2]; hess_t(D) = [A3, A4; A4, -A3];
@@ -18,16 +22,18 @@ function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
 % Output: A (n_targ * n_src) is source-to-target value matrix
 %         An or A1, A2 = source to target normal-deriv (or x,y-deriv) matrices
 %
-% Note: this returns matrix to eval (1/(2i*pi)) * int_Gamma sigma(y)/(y-x) dy,
-%  ie the complex Cauchy integral whose real part is the 2D Laplace DLP.
+% For test: see ../test/testGRFLap_panels.m for now
 
-% Notes: 1) Efficient only if multiple targs, since O(p^3).
+% Notes:
+% 0) adapted from Dspecialquad.m in stokes-panel-quad, orig laplacecloseeval.m
+% 1) Efficient only if multiple targs, since O(p^3).
 % 2) See Helsing-Ojala 2008 (special quadr Sec 5.1-2),
 %  Helsing 2009 mixed (p=16), and Helsing's tutorial demo11b.m M1IcompRecFS().
 % 3) real part is taken, which prevents the Stokes extension using complex tau.
+% 4) not tidy. still uses curved decision boundary (gam), to clear up.
 %
-% Authors: Alex Barnett (2013-2021), based on Johan Helsing
-% additions by Bowei Wu.
+% Authors: Alex Barnett (2013-2021), based on Johan Helsing.
+% tweaks by Bowei Wu, Hai Zhu.
 
 if nargin<5, side = 'i'; end     % interior or exterior
 zsc = (b-a)/2; zmid = (b+a)/2; % rescaling factor and midpoint of src segment

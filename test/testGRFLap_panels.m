@@ -1,5 +1,5 @@
 % test panels (incl close) in 2D for Laplace Green's representation formula.
-% Barnett 9/14/21.
+% Barnett 9/14/21. Helsing-Ojala rule, and potential (no derivs), for now.
 
 clear; a = .3; w = 5;         % smooth wobbly radial shape params
 verb = 1;
@@ -33,8 +33,8 @@ if verb, figure(1); clf; l=0.1; for i=1:Np, plot(pa{i}.x,'k.-'); hold on;
 % We test interior GRF formula: u = S u_n^- - D u^-   in Omega, and surface lim
 
 fholom = @(z) z.^4 + exp(z);  fpholom = @(z) 4*z.^3 + exp(z);  % holomorphic
-DLPonly = 1;
-if DLPonly, fholom = @(z) 1+0*z; fpholom = @(z) 0*z; end   % tau=-1 test.
+unitDLP = 0;       % 1 overrides with basic tau=-1 const test, no SLP
+if unitDLP, fholom = @(z) 1+0*z; fpholom = @(z) 0*z; end
 u = @(z) real(fholom(z));                                 % harmonic
 ux = @(z) real(fpholom(z)); uy = @(z) -imag(fpholom(z));  % partials, sign!
 % Since z = x_1 + ix_2 is our packing of coordinates in R2, need to unpack
@@ -56,7 +56,7 @@ err = vt - u(t.x);      % compare to known u at targ
 errn = vnt - (ux(t.x)*real(t.nx) + uy(t.x)*imag(t.nx));   % ..or known deriv
 fprintf('GRF far int pt (val,dderiv) err = (%.3g,%.3g)\n',abs(err),abs(errn))
 
-% ========= test close interior pt.  with Helsing for now.
+% ========= test close interior pt. with Helsing for now.
 t.x = 0.8+0.49i; if verb, plot(t.x,'r*'); drawnow; end   % dist about 5e-3
 
 side = 'i'; closepan = 1.2;    % factor for when to use close
@@ -65,11 +65,13 @@ for i=1:Np   % add in each panel contrib
   a = zpan(i); b = zpan(i+1);     % panel endpts
   if abs(t.x - (a+b)/2) < closepan * abs(b-a)        % near-field of pan
     D = LapDLP_closepanel(t,pa{i},a,b,side);  % close eval matrix
+    S = LapSLP_closepanel(t,pa{i},a,b,side);
   else
     D = LapDLP(t,pa{i});     % plain rule matrix
+    S = LapSLP(t,pa{i});
   end
   jj = (1:p)+p*(i-1);        % indices of pan nodes within global list
-  vt = vt - D*ub(jj);         % add contrib of GRF from this pan
+  vt = vt + S*unb(jj) - D*ub(jj);      % add contrib of GRF from this pan
 end
 err = vt - u(t.x);      % compare to known u at targ
 fprintf('GRF close int pt val err = %.3g\n',abs(err))
