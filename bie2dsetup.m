@@ -11,3 +11,4 @@ addpath([mfilepath, '/solvers']);
 addpath([mfilepath, '/solvers/closetouchingexpts']);
 addpath([mfilepath, '/singlyperiodic']);
 addpath([mfilepath, '/doublyperiodic']);
+addpath([mfilepath, '/panels']);
