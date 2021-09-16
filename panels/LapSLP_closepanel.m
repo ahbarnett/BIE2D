@@ -1,4 +1,4 @@
-function [A, A1, A2] = LapSLP_closepanel(t,s,a,b,side)
+function [A, A1, A2] = LapSLP_closepanel(t,s,a,b,side,meth)
 % LAPSLP_CLOSEPANEL - SLP val+grad close-eval Helsing "special quadrature" matrix
 %
 % [A] = LapSLP_closepanel(t,s,a,b) returns
@@ -32,6 +32,8 @@ function [A, A1, A2] = LapSLP_closepanel(t,s,a,b,side)
 %
 % Authors: Alex Barnett (2013-2021), based on Johan Helsing.
 % tweaks by Bowei Wu, Hai Zhu.
+
+% *** note meth='s' not implemented! Reverts to 'h'. todo.
 
 if nargin<5, side = 'i'; end     % interior or exterior
 zsc = (b-a)/2; zmid = (b+a)/2; % rescaling factor and midpoint of src segment

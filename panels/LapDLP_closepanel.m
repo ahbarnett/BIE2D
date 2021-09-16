@@ -1,5 +1,5 @@
-function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
-% LAPDLP_CLOSEPANEL - complex DLP val+grad close-eval Helsing "special quadr" matrix
+function [varargout] = LapDLP_closepanel(t,s,a,b,side, meth)
+% LAPDLP_CLOSEPANEL - real DLP close-eval matrix (Helsing or sing-swap)
 %
 % [A] = LapDLP_closepanel(t,s,a,b)
 %  returns numel(t.x)-by-numel(s.x) matrix which maps DLP values at the nodes
@@ -8,6 +8,13 @@ function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
 %  The matrix is the quadrature approximation to evaluation of
 %    Re (1/(2i*pi)) * int_Gamma sigma(y)/(y-x) dy,
 %  ie the 2D Laplace DLP acting on real densities (not the Cauchy complex val).
+%
+% [A] = LapDLP_closepanel(t,s,a,b,side) allows exterior if side='e', otherwise
+%  interior side='i' is assumed.
+%
+% [A] = LapDLP_closepanel(t,s,a,b,side,meth) also controls method:
+%   'h' = Helsing-Ojala (matches complex polynomial on curve)
+%   's' = singulary-swap of af Klinteberg-Barnett (matches on flat panel)
 %
 % [A Az] = LapDLP_closepanel(t,s,a,b) also gives target complex gradient
 %   *** untested since converted to Re part *** TO FIX
@@ -18,7 +25,9 @@ function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
 % Inputs: t = target seg struct (with column-vec t.x targets in complex plane)
 %         s = src node seg struct (with s.x, s.w, s.wxp; amazingly, s.nx not used!)
 %         a = panel start, b = panel end, in complex plane.
-%         side = 'i' (interior) or 'e' (exterior). [optional]
+%         [optional] side = 'i' (interior) or 'e' (exterior)
+%         [optional] meth = 'h' (Helsing-Ojala, default)
+%                           's' (af Klinteberg-Barnett, singularity-swap)
 % Output: A (n_targ * n_src) is source-to-target value matrix
 %         An or A1, A2 = source to target normal-deriv (or x,y-deriv) matrices
 %
@@ -30,12 +39,29 @@ function [A, A1, A2, A3, A4] = LapDLP_closepanel(t,s,a,b,side)
 % 2) See Helsing-Ojala 2008 (special quadr Sec 5.1-2),
 %  Helsing 2009 mixed (p=16), and Helsing's tutorial demo11b.m M1IcompRecFS().
 % 3) real part is taken, which prevents the Stokes extension using complex tau.
-% 4) not tidy. still uses curved decision boundary (gam), to clear up.
+% 4) not tidy. still uses arc decision boundary (gam). to clear up.
 %
-% Authors: Alex Barnett (2013-2021), based on Johan Helsing.
-% tweaks by Bowei Wu, Hai Zhu.
+% Authors: Alex Barnett (2013-2021); tweaks to HO code by Bowei Wu, Hai Zhu.
 
 if nargin<5, side = 'i'; end     % interior or exterior
+if nargin<6, meth = 'h'; end
+% wrap the below routines...
+if meth=='h'
+  varargout{1:nargout} = LapDLP_closepanel_HO(t,s,a,b,side);
+elseif meth=='s'
+  varargout{1:nargout} = LapDLP_closepanel_SS(t,s,a,b,side);
+end
+%%%%%%%%%
+  
+function varargout = LapDLP_closepanel_HO(t,s,a,b,side)    % Re wrapper
+% true DLP, taking real part.
+varargout{1:nargout} = LapDLPcmplx_closepanel_HO(t,s,a,b,side);
+for i=1:nargout,
+  varargout{i} = real(varargout{i});
+end
+
+function [A, A1, A2, A3, A4] = LapDLPcmplx_closepanel_HO(t,s,a,b,side)
+% the Helsing-Ojala version; see docs above. Complex (no taking Re part).
 zsc = (b-a)/2; zmid = (b+a)/2; % rescaling factor and midpoint of src segment
 y = (s.x-zmid)/zsc; x = (t.x-zmid)/zsc;  % transformed src nodes, targ pts
 %figure; plot(x,'.'); hold on; plot(y,'+-'); plot([-1 1],[0 0],'ro'); % debug
@@ -70,8 +96,8 @@ if Nf>0 % Criterion added by Bowei Wu 03/05/15 to ensure ifr not empty
 end
 
 warning('off','MATLAB:nearlySingularMatrix');
-A = real((V.'\P).'*(1i/(2*pi)));         % solve for special quadr weights
-%A = ((V.'\P).'*(1i/(2*pi)));         % do not take real for the eval of Stokes DLP non-laplace term. Bowei 10/19/14
+%A = real((V.'\P).'*(1i/(2*pi)));         % solve for special quadr weights
+A = ((V.'\P).'*(1i/(2*pi)));         % do not take real for the eval of Stokes DLP non-laplace term. Bowei 10/19/14
 %A = (P.'*inv(V))*(1i/(2*pi));   % equiv in exact arith, but not bkw stable.
 if nargout>1
     R =  -(kron(ones(p,1),1./(1-x.')) + kron((-1).^(0:p-1).',1./(1+x.'))) +...
@@ -90,4 +116,23 @@ if nargout>1
         end
     end
 end
-end
+
+
+function [A, A1, A2, A3, A4] = LapDLP_closepanel_SS(t,s,a,b,side)
+% the singularity-swap version; see docs above.
+% Just the nodes (and stdpan nodes) are needed, no analytic parameterization.
+
+% todo: vectorize over targs t
+p=numel(s.x);
+[stdpan.t, stdpan.w] = gauss(p);   % todo: pass this in or look up
+stdpan.x = stdpan.t; stdpan.wxp = stdpan.w';    % bare min for stdpan struct
+[t0.x, c, cp] = panel_preimage(s.x,stdpan.x,t.x);  % t0=param-plane targ struct
+A = LapDLPcmplx_closepanel_HO(t0,stdpan,-1,1,side);  % Helsing eval mat flat panel
+
+ypj = polyval(cp, stdpan.t);  % get map derivs at nodes
+% right-diag-scale the (complex) HO matrix to get the SS matrix...
+scvec = (stdpan.t-t0.x)./(s.x-t.x).*ypj;
+A = A*diag(scvec);
+A = real(A);
+
+% *** todo: deriv matrices
