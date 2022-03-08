@@ -1,12 +1,13 @@
 function err=checkgrad(f,df,x0)
-% CHECKGRAD   verify an function in R^2 has correct analytic gradient
+% CHECKGRAD   verify a function in R^2 has correct analytic gradient function
 %
 % err = checkgrad(f,df) returns error between finite-differencing approx to
-%  grad f and the function df. f is a function handle taking a stack of m 3-cpt
+%  grad f and the function df. f is a function handle taking a stack of m 2-cpt
 %  col vecs and returning a row vec of m values. df only need map a single
 %  col vec to a col vec gradient vector (ie not be vectorized).
-% err = checkgrad(f,df,x0) enforces the testpoint, which is otherwise random
-%  in [-1,1]^2
+%
+% err = checkgrad(f,df,x0) enforces the testpoint x0, which is otherwise random
+%  in [-1,1]^2.
 %
 % a self-test is done with no inputs
 
